@@ -1,11 +1,11 @@
 node_modules/
 
-# runtime state (generated on first run)
-data/*.sqlite
+# Transient / secret only. The poster library DB (data/poster-app.sqlite) and the
+# image database (image-library/assets/) ARE tracked — they hold pre-generated
+# posters and images that must persist across clones/deploys.
 data/*.sqlite-shm
 data/*.sqlite-wal
 data/session-token
-image-library/assets/
 
 # secrets / local
 .env
