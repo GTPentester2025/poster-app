@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pipeline — Poster Studio</title>
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/pipeline.css">
+<!-- UI chrome fonts (base.css --font / --font-head; Segoe fallback offline) -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="index.html">Poster<span>Studio</span></a>
+  <nav aria-label="Primary">
+    <a href="index.html">Create</a>
+    <a href="pipeline.html" class="active" aria-current="page">Ops</a>
+    <a href="library.html">Library</a>
+    <a href="backgrounds.html">Backgrounds</a>
+    <a href="usage.html">Usage</a>
+    <a href="config.html">Config</a>
+  </nav>
+</header>
+
+<main class="page wide">
+  <div id="authBanner" class="banner hidden">
+    <strong>Not authorized.</strong> This app uses a per-install session token: open the
+    tokenized URL printed at server startup (<code>http://127.0.0.1:4180/?token=…</code>)
+    once in this browser — it sets the session cookie, then reload this page.
+  </div>
+
+  <div class="pipeline-header">
+    <h1>Pipeline</h1>
+    <label>Run
+      <select id="runPicker"><option value="">no runs yet</option></select>
+    </label>
+    <span id="streamStatus" class="chip" role="status" aria-live="polite">connecting…</span>
+  </div>
+
+  <div class="pipeline-layout">
+    <section class="card board-panel">
+      <h2>Poster pipeline — live agent status</h2>
+      <div class="board" id="board">
+        <svg id="arrowLayer">
+          <defs>
+            <marker id="arrowhead" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+              <path d="M0,0 L8,4 L0,8 z" fill="currentColor"></path>
+            </marker>
+          </defs>
+        </svg>
+      </div>
+    </section>
+
+    <aside class="card feed-panel">
+      <h2>Event feed <span id="feedCount" class="chip">0 events</span></h2>
+      <ul class="feed" id="feed" role="log" aria-live="polite" aria-label="Pipeline event feed"></ul>
+      <p class="feed-empty hidden" id="feedEmpty">No events for this run yet.</p>
+    </aside>
+  </div>
+
+  <section class="card console" id="console">
+    <h2>Override console <span id="runStatus" class="chip">no run selected</span></h2>
+    <p class="hint">Harness-level control: pause blocks every hand-off and quality loop of the
+    run; a forced decision is logged and attributed; rollback restores a saved checkpoint.</p>
+    <p class="hint">Live-run control — pause/checkpoint state is in-memory and clears on server
+    restart (audit trail persists in the event log).</p>
+    <div class="console-row">
+      <input id="opReason" maxlength="1000" placeholder="Reason (required for pause / force decision / rollback)">
+      <button id="pauseBtn">Pause</button>
+      <button id="resumeBtn">Resume</button>
+    </div>
+    <div class="console-row">
+      <label>Stage
+        <select id="decisionStage"></select></label>
+      <label>Decision
+        <select id="decisionValue">
+          <option value="accepted">accepted</option>
+          <option value="rejected">rejected</option>
+          <option value="modification_required">modification_required</option>
+        </select></label>
+      <button id="decisionBtn">Force decision</button>
+      <label>Checkpoint
+        <select id="checkpointPicker"><option value="">none</option></select></label>
+      <button id="rollbackBtn">Rollback</button>
+      <span id="consoleStatus" class="status" role="status" aria-live="polite"></span>
+    </div>
+  </section>
+</main>
+
+<script src="js/stream.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/pipeline_page.js"></script>
+</body>
+</html>

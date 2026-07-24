@@ -1,0 +1,21 @@
+{
+  "name": "@postter/poster-app",
+  "version": "1.0.0",
+  "description": "Security awareness poster generation application",
+  "type": "module",
+  "main": "backend/server.js",
+  "scripts": {
+    "start": "node backend/server.js",
+    "test": "node --test \"tests/unit/**/*.test.js\""
+  },
+  "imports": {
+    "#shared": "./lib/shared/index.js",
+    "#orchestration": "./lib/orchestration/index.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.2.0",
+    "express": "^4.21.0",
+    "fabric": "^6.7.0",
+    "openai": "^5.10.0"
+  }
+}

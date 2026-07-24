@@ -1,0 +1,15 @@
+node_modules/
+
+# runtime state (generated on first run)
+data/*.sqlite
+data/*.sqlite-shm
+data/*.sqlite-wal
+data/session-token
+image-library/assets/
+
+# secrets / local
+.env
+.env.*
+*.log
+
+.playwright-mcp/

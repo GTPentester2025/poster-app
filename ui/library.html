@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Library — Poster Studio</title>
+<link rel="stylesheet" href="css/base.css">
+<!-- UI chrome fonts (base.css --font / --font-head; Segoe fallback offline) -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="index.html">Poster<span>Studio</span></a>
+  <nav aria-label="Primary">
+    <a href="index.html">Create</a>
+    <a href="pipeline.html">Ops</a>
+    <a href="library.html" class="active" aria-current="page">Library</a>
+    <a href="backgrounds.html">Backgrounds</a>
+    <a href="usage.html">Usage</a>
+    <a href="config.html">Config</a>
+  </nav>
+</header>
+
+<main class="page">
+  <div id="authBanner" class="banner hidden">
+    <strong>Not authorized.</strong> This app uses a per-install session token: open the
+    tokenized URL printed at server startup (<code>http://127.0.0.1:4180/?token=…</code>)
+    once in this browser — it sets the session cookie, then reload this page.
+  </div>
+
+  <h1>Poster library</h1>
+  <p class="hint">Every poster you create is saved here with its status. Posters that reached
+  the design phase open in the editor — click a card to fine-tune text, images, colors and layout.</p>
+
+  <div class="library-layout">
+    <div class="library-main">
+      <div class="library-controls">
+        <input id="librarySearch" type="search" autocomplete="off"
+          placeholder="Search by name…" aria-label="Search posters by name">
+        <div class="status-filters" id="statusFilters" role="group" aria-label="Filter posters by status">
+          <button type="button" class="filter-chip active" data-status="all" aria-pressed="true">All</button>
+          <button type="button" class="filter-chip" data-status="draft" aria-pressed="false">Draft</button>
+          <button type="button" class="filter-chip" data-status="designed" aria-pressed="false">Designed</button>
+          <button type="button" class="filter-chip" data-status="saved" aria-pressed="false">Saved</button>
+          <button type="button" class="filter-chip" data-status="translated" aria-pressed="false">Translated</button>
+        </div>
+        <label class="sort-label">Sort
+          <select id="librarySort" aria-label="Sort posters">
+            <option value="updated">Updated</option>
+            <option value="name">Name</option>
+          </select>
+        </label>
+      </div>
+      <p id="libraryCount" class="status library-count" role="status" aria-live="polite"></p>
+      <div class="poster-grid" id="posterGrid"></div>
+      <div class="empty-state hidden" id="emptyState">
+        <svg class="empty-shield" viewBox="0 0 48 48" fill="none" aria-hidden="true" focusable="false"><path d="M24 4L6 12v12c0 10.5 7.7 20.3 18 22.6C35.3 44.3 42 34.5 42 24V12L24 4z" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round"/><path d="M16 24l5.5 5.5L33 19" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <p class="empty-title">No posters yet</p>
+        <p>Your finished and in-progress posters land here automatically.</p>
+        <a class="empty-cta" href="index.html">Create your first poster</a>
+      </div>
+      <div class="empty-state hidden" id="noMatchState">
+        <svg class="empty-shield" viewBox="0 0 48 48" fill="none" aria-hidden="true" focusable="false"><path d="M24 4L6 12v12c0 10.5 7.7 20.3 18 22.6C35.3 44.3 42 34.5 42 24V12L24 4z" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round"/><path d="M16 24l5.5 5.5L33 19" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <p>No posters match the current search and filters.</p>
+      </div>
+      <p id="libraryStatus" class="status" role="status" aria-live="polite"></p>
+    </div>
+    <aside class="library-side" id="librarySide">
+      <div class="what-worked-panel" id="whatWorkedPanel">
+        <h2>What worked best</h2>
+        <p class="hint" id="whatWorkedHint">Click a poster to see what worked best for its topic.</p>
+        <div id="whatWorkedList" class="what-worked-list"></div>
+        <p id="whatWorkedStatus" class="status" role="status" aria-live="polite"></p>
+      </div>
+    </aside>
+  </div>
+
+  <hr class="section-rule">
+  <h2>Image library</h2>
+  <p class="hint">Images in the library can be assigned to poster image slots. Upload your own,
+  or let AI-generated images accumulate here automatically. Every image is checked for embedded
+  text before it lands on a poster.</p>
+  <div class="upload-form">
+    <label class="upload-label">Upload image (PNG or JPEG, max 8MB)
+      <input type="file" id="imageFileInput" accept="image/png,image/jpeg">
+    </label>
+    <div class="grid2">
+      <label>Topics (comma-separated)
+        <input id="uploadTopics" placeholder="e.g. phishing, email security"></label>
+      <label>Style
+        <input id="uploadStyle" placeholder="e.g. flat-icon"></label>
+      <label>Format
+        <input id="uploadFormat" placeholder="e.g. icon"></label>
+    </div>
+    <div class="row">
+      <button id="uploadImageBtn" class="primary">Upload</button>
+      <span id="uploadStatus" class="status" role="status" aria-live="polite"></span>
+    </div>
+  </div>
+  <div class="image-grid" id="imageGrid"></div>
+  <div class="empty-state hidden" id="imageLibraryEmpty">No images in the library yet.</div>
+  <p id="imageLibraryStatus" class="status" role="status" aria-live="polite"></p>
+</main>
+
+<script src="vendor/fabric.min.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/library_page.js"></script>
+</body>
+</html>

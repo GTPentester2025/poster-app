@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Editor — Poster Studio</title>
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/editor.css">
+<!-- poster fonts: the canvas renders real font families locally -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,400;0,700;0,800;0,900;1,700&family=Inter:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+</head>
+<body class="editor-body">
+<!-- The whole editor UI (toolbar, tool rail, canvas stage, properties panel,
+     modals) is built by js/editor_inline.js (Phase O7 embeddable component).
+     This page only provides the chrome: topbar, banners and the mount host. -->
+<header class="topbar editor-topbar">
+  <a class="brand" href="index.html">Poster<span>Studio</span></a>
+  <div class="editor-title">
+    <span id="posterName">Editor</span>
+  </div>
+  <!-- EditorInline mounts its toolbar (undo/zoom/language/save…) here -->
+  <div class="editor-actions" id="editorToolbarHost"></div>
+  <!-- Export controls (reuse window.PosterExport — export.js already loaded) -->
+  <div class="editor-export" id="editorExport">
+    <select id="editorExportOrient" aria-label="Export orientation">
+      <option value="portrait">Portrait</option>
+      <option value="landscape">Landscape</option>
+    </select>
+    <button id="editorExportPpt" class="primary" type="button" title="Download as editable PowerPoint">Export PPT</button>
+    <button id="editorExportHtml" type="button" title="Download as self-contained HTML">HTML</button>
+    <button id="editorExportJpeg" type="button" title="Download as full-resolution JPEG">JPEG</button>
+    <span id="editorExportStatus" class="status" role="status" aria-live="polite"></span>
+  </div>
+  <button class="primary lib-link-btn" type="button" onclick="location.href='library.html'" title="Back to the poster library">Library</button>
+</header>
+
+<div id="authBanner" class="banner hidden editor-banner">
+  <strong>Not authorized.</strong> Open the tokenized URL printed at server startup
+  (<code>http://127.0.0.1:4180/?token=…</code>) once in this browser, then reload.
+</div>
+<div id="loadBanner" class="banner hidden editor-banner"></div>
+
+<!-- EditorInline mount host (fills the rest of the viewport) -->
+<div class="editor-host" id="editorShell"></div>
+
+<script src="vendor/fabric.min.js"></script>
+<script src="js/auth.js"></script>
+<script src="vendor/pptxgen.bundle.js"></script>
+<script src="js/export.js"></script>
+<script src="js/editor_inline.js"></script>
+<script src="js/editor_page.js"></script>
+</body>
+</html>

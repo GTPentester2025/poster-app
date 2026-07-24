@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Backgrounds &amp; Patterns — Poster Studio</title>
+<link rel="stylesheet" href="css/base.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="index.html">Poster<span>Studio</span></a>
+  <nav aria-label="Primary">
+    <a href="index.html">Create</a>
+    <a href="pipeline.html">Ops</a>
+    <a href="library.html">Library</a>
+    <a href="backgrounds.html" class="active" aria-current="page">Backgrounds</a>
+    <a href="usage.html">Usage</a>
+    <a href="config.html">Config</a>
+  </nav>
+</header>
+
+<main class="page bg-studio-page">
+  <div id="authBanner" class="banner hidden">
+    <strong>Not authorized.</strong> This app uses a per-install session token: open the
+    tokenized URL printed at server startup (<code>http://127.0.0.1:4180/?token=…</code>)
+    once in this browser — it sets the session cookie, then reload this page.
+  </div>
+
+  <h1>Backgrounds &amp; Patterns</h1>
+  <p class="hint">Generate standalone full-bleed backgrounds and patterns for your posters. All
+  images are zero-text gated — purely visual, no embedded words or letters.</p>
+
+  <!-- Generator card -->
+  <section class="card bg-gen-card" aria-label="Background generator">
+    <h2>Generate a background</h2>
+
+    <div class="bg-treatment-group" role="group" aria-label="Treatment">
+      <span class="bg-treatment-label">Type</span>
+      <div class="bg-seg-ctrl" id="treatmentCtrl">
+        <button type="button" class="bg-seg-btn active" data-treatment="gradient" aria-pressed="true">Gradient</button>
+        <button type="button" class="bg-seg-btn" data-treatment="pattern" aria-pressed="false">Pattern</button>
+        <button type="button" class="bg-seg-btn" data-treatment="image" aria-pressed="false">Scene</button>
+      </div>
+    </div>
+
+    <label class="bg-prompt-label">Optional prompt (up to 500 characters)
+      <textarea id="bgPromptInput" class="prompt-box bg-prompt-input"
+        maxlength="500" rows="3"
+        placeholder="Describe the look you want, or leave blank for a brand-palette default…"
+        aria-label="Optional prompt for background generation"></textarea>
+      <span class="bg-char-count" id="bgCharCount" aria-live="polite">0 / 500</span>
+    </label>
+
+    <label class="bg-similar-label">Generate similar to (optional)
+      <select id="bgSimilarSelect" aria-label="Generate similar to an existing background">
+        <option value="">— none —</option>
+      </select>
+    </label>
+
+    <div class="row bg-gen-row">
+      <button id="bgGenerateBtn" type="button" class="primary ic ic-sparkle">Generate</button>
+      <span id="bgGenStatus" class="status" role="status" aria-live="polite"></span>
+    </div>
+
+    <!-- Result preview -->
+    <div id="bgPreview" class="bg-preview hidden" aria-label="Generated background preview">
+      <img id="bgPreviewImg" class="bg-preview-img" alt="Generated background preview" src="">
+      <div class="bg-preview-meta">
+        <p class="bg-preview-desc" id="bgPreviewDesc"></p>
+        <div class="bg-preview-tags" id="bgPreviewTags" aria-label="Tags"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Library grid -->
+  <section class="bg-library-section" aria-label="Background library">
+    <div class="bg-library-header">
+      <h2>Background library</h2>
+      <button id="bgRefreshBtn" type="button" class="ic ic-refresh" aria-label="Refresh library">Refresh</button>
+    </div>
+    <p class="hint" id="bgLibraryHint">All AI-generated backgrounds saved to your library appear here.</p>
+
+    <div class="bg-grid" id="bgGrid" aria-label="Saved backgrounds"></div>
+    <div class="empty-state hidden" id="bgEmpty">
+      <p>No backgrounds yet. Use the generator above to create your first one.</p>
+    </div>
+    <p id="bgLibraryStatus" class="status" role="status" aria-live="polite"></p>
+  </section>
+</main>
+
+<script src="js/auth.js"></script>
+<script src="js/backgrounds_page.js"></script>
+</body>
+</html>

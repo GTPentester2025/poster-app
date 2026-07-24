@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Config — Poster Studio</title>
+<link rel="stylesheet" href="css/base.css">
+<!-- UI chrome fonts (base.css --font / --font-head; Segoe fallback offline) -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="index.html">Poster<span>Studio</span></a>
+  <nav aria-label="Primary">
+    <a href="index.html">Create</a>
+    <a href="pipeline.html">Ops</a>
+    <a href="library.html">Library</a>
+    <a href="backgrounds.html">Backgrounds</a>
+    <a href="usage.html">Usage</a>
+    <a href="config.html" class="active" aria-current="page">Config</a>
+  </nav>
+</header>
+
+<main class="page narrow">
+  <h1>Organization configuration</h1>
+  <p class="hint">These values are stored locally and <strong>never sent to any AI model</strong>.
+  Outbound prompts carry placeholders (e.g. <code>{{ORG_NAME}}</code>); real values are re-inserted
+  locally when responses return. The egress module blocks any call that would leak them.</p>
+
+  <section class="card">
+    <h2>Company details</h2>
+    <div class="grid2">
+      <label>Company name <input id="companyName" placeholder="e.g. AB InBev"></label>
+      <label>SOC reporting email <input id="socEmail" type="email" placeholder="soc@company.com"></label>
+      <label>Training portal URL <input id="trainingPortalUrl" placeholder="https://…"></label>
+      <label>Content portal URL <input id="contentPortalUrl" placeholder="https://…"></label>
+      <label>Phishing reporting URL <input id="reportingUrl" placeholder="https://…"></label>
+      <label>IT helpdesk contact <input id="itHelpdesk" placeholder="ext. / phone / channel"></label>
+    </div>
+    <label>Organization domains (comma-separated; any email/URL on these domains is scrubbed outbound)
+      <input id="orgDomains" placeholder="company.com, corp.company.com"></label>
+    <label>Additional sensitive terms (comma-separated; each is masked outbound)
+      <input id="customSensitiveTerms" placeholder="Project X, internal tool names…"></label>
+    <button id="saveOrg" class="primary">Save organization config</button>
+    <span id="orgStatus" class="status" role="status" aria-live="polite"></span>
+  </section>
+
+  <section class="card">
+    <h2>Brand palette override</h2>
+    <p class="hint">Default palette follows AB InBev brand colors. Provide an override to use your own brand.</p>
+    <div class="grid2">
+      <label>Primary color <input id="brandPrimary" type="color" value="#E3AF32"></label>
+      <label>Secondary color <input id="brandSecondary" type="color" value="#000000"></label>
+      <label>Accent color <input id="brandAccent" type="color" value="#C8102E"></label>
+      <label>Background color <input id="brandBackground" type="color" value="#F5F0E8"></label>
+      <label>Heading font <input id="brandFontHead" placeholder="e.g. Montserrat"></label>
+      <label>Body font <input id="brandFontBody" placeholder="e.g. Inter"></label>
+    </div>
+    <div class="row">
+      <button id="saveBrand" class="primary">Save brand override</button>
+      <button id="clearBrand">Use default (AB InBev)</button>
+    </div>
+    <span id="brandStatus" class="status" role="status" aria-live="polite"></span>
+  </section>
+
+  <section class="card">
+    <h2>AI provider</h2>
+    <p class="hint">Use <strong>OpenAI</strong>, or any <strong>OpenAI-compatible</strong> endpoint
+    (Ollama, OpenRouter, LiteLLM, vLLM, Groq…). Custom endpoints use a base URL plus a single model id.
+    A blank / keyless key means no <code>Authorization</code> header (e.g. local Ollama).</p>
+    <label>Provider
+      <select id="providerSelect">
+        <option value="openai">OpenAI</option>
+        <option value="custom">Custom (OpenAI-compatible)</option>
+      </select>
+    </label>
+    <div id="customFields" hidden>
+      <div class="grid2">
+        <label>Base URL <input id="customBaseUrl" placeholder="http://localhost:11434/v1"></label>
+        <label>Custom API key <span class="chip" id="customChip">not configured</span>
+          <input id="customKey" type="password" autocomplete="off" placeholder="paste key (blank keeps current)"></label>
+      </div>
+      <label class="check"><input type="checkbox" id="customKeyless"> Keyless endpoint (clear the stored key — e.g. local Ollama)</label>
+      <div class="row">
+        <label style="flex:1">Model
+          <input id="customModel" list="customModelList" placeholder="e.g. llama3.1 (or click Load models)">
+          <datalist id="customModelList"></datalist>
+        </label>
+        <button id="loadModels" type="button">Load models</button>
+      </div>
+      <span id="loadModelsStatus" class="status" role="status" aria-live="polite"></span>
+    </div>
+    <button id="saveProvider" class="primary">Save provider</button>
+    <span id="providerStatus" class="status" role="status" aria-live="polite"></span>
+  </section>
+
+  <section class="card" id="openaiKeyCard">
+    <h2>OpenAI API key</h2>
+    <p class="hint">Single provider: one OpenAI key powers content, the vision zero-text gate, and image
+    generation. Write-only — stored server-side, never displayed again, never logged.</p>
+    <div class="grid2">
+      <label>OpenAI API key <span class="chip" id="openaiChip">not configured</span>
+        <input id="openaiKey" type="password" autocomplete="off" placeholder="sk-…"></label>
+    </div>
+    <button id="saveKeys" class="primary">Save key</button>
+    <span id="keysStatus" class="status" role="status" aria-live="polite"></span>
+  </section>
+
+  <section class="card" id="modelsCard">
+    <h2>Models</h2>
+    <p class="hint">Choose the OpenAI model for each role. Content = poster copy &amp; research;
+    Vision = the zero-text image gate; Image = generated artwork.</p>
+    <div class="grid2">
+      <label>Content model <select id="modelContent"></select></label>
+      <label>Vision model <select id="modelVision"></select></label>
+      <label>Image model <select id="modelImage"></select></label>
+    </div>
+    <button id="saveModels" class="primary">Save models</button>
+    <span id="modelsStatus" class="status" role="status" aria-live="polite"></span>
+  </section>
+</main>
+
+<script src="js/auth.js"></script>
+<script src="js/config_page.js"></script>
+</body>
+</html>

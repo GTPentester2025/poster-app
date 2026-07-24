@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Create — Poster Studio</title>
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/theater.css">
+<!-- editor.css before metro.css: the inline editor (O7) reuses the editor
+     component styles; metro.css keeps precedence on shared class names -->
+<link rel="stylesheet" href="css/editor.css">
+<link rel="stylesheet" href="css/metro.css">
+<!-- poster fonts (design previews render real canvas JSON with these families) -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="index.html">Poster<span>Studio</span></a>
+  <nav aria-label="Primary">
+    <a href="index.html" class="active" aria-current="page">Create<span class="topbar-run-dot" aria-hidden="true"></span></a>
+    <a href="pipeline.html">Ops</a>
+    <a href="library.html">Library</a>
+    <a href="backgrounds.html">Backgrounds</a>
+    <a href="usage.html">Usage</a>
+    <a href="config.html">Config</a>
+  </nav>
+</header>
+
+<div class="create-shell" id="createShell">
+
+  <!-- ── left rail: pipeline activity (transparency feed) ─────────────────── -->
+  <aside class="rail rail-left" id="railLeft" aria-label="Pipeline activity">
+    <div class="rail-head">
+      <h2>Pipeline activity</h2>
+      <span class="rail-count" id="activityCount">0 events</span>
+      <button id="collapseLeftBtn" class="rail-collapse-btn" title="Collapse activity rail"
+        aria-label="Collapse activity rail" aria-expanded="true" aria-controls="railLeft">⟨</button>
+    </div>
+    <div class="rail-tools" id="railTools">
+      <div class="rail-tools-row">
+        <button id="loadEgressChainBtn" type="button"
+          title="Fetch every model call of this run from the egress log — backfills any calls the live feed missed">Load full prompt chain</button>
+        <span id="egressToolsStatus" class="rail-tools-status" role="status" aria-live="polite"></span>
+      </div>
+      <input id="egressFilterInput" type="search" autocomplete="off"
+        placeholder="Filter calls — agent / skill / stage" aria-label="Filter pipeline calls">
+    </div>
+    <div class="rail-body" id="activityBody">
+      <p class="feed-empty" id="activityEmpty"><svg class="empty-shield" viewBox="0 0 48 48" fill="none" aria-hidden="true" focusable="false"><path d="M24 4L6 12v12c0 10.5 7.7 20.3 18 22.6C35.3 44.3 42 34.5 42 24V12L24 4z" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round"/><path d="M16 24l5.5 5.5L33 19" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Agent activity streams here live once a run starts —
+      every stage, hand-off, review verdict and rework, grouped by station.</p>
+      <div id="activityFeed" role="log" aria-live="polite" aria-label="Pipeline activity feed"></div>
+    </div>
+  </aside>
+
+  <!-- ── center: metro line ────────────────────────────────────────────────── -->
+  <main class="metro-main">
+    <div id="authBanner" class="banner hidden">
+      <strong>Not authorized.</strong> This app uses a per-install session token: open the
+      tokenized URL printed at server startup (<code>http://127.0.0.1:4180/?token=…</code>)
+      once in this browser — it sets the session cookie, then reload this page.
+    </div>
+
+    <h1>Create a poster</h1>
+    <p class="hint">Describe the topic, pick a template, and the pipeline does the rest.</p>
+
+    <ol class="metro-line" id="metroLine">
+
+      <!-- 1 · Prompt -->
+      <li class="station open" id="st-prompt" data-station="prompt" data-state="active">
+        <div class="station-node" aria-hidden="true"><span class="glyph-num">1</span><span class="glyph-check">✓</span></div>
+        <button class="station-head" type="button" aria-expanded="true">
+          <span class="station-title">Prompt</span>
+          <span class="station-state-label"></span>
+        </button>
+        <div class="station-card-wrap"><div class="station-card-clip"><div class="station-card">
+          <p class="hint">Describe the security topic your poster should teach — more detail, better results.</p>
+          <textarea id="promptInput" class="prompt-box" maxlength="2000"
+            aria-label="Poster topic — describe the security topic your poster should teach"
+            placeholder="e.g. Teach employees how to spot phishing emails that impersonate IT support"></textarea>
+          <p class="hint">Or start from a sample prompt:</p>
+          <div class="samples" id="samplePrompts">
+            <button type="button" class="sample-chip"><span class="sample-chip-category">Phishing</span>Teach employees how to spot phishing emails that impersonate IT support — urgent language, mismatched sender domains, unexpected attachments — and remind them that IT will never ask for their password.</button>
+            <button type="button" class="sample-chip"><span class="sample-chip-category">USB</span>USB and removable media dos and don'ts: never plug in a USB stick found in the parking lot or handed out at an event; report found media to the SOC instead of checking "what's on it".</button>
+            <button type="button" class="sample-chip"><span class="sample-chip-category">MFA</span>Strong passphrases and MFA: get employees to move from short passwords to long passphrases, switch on multi-factor authentication everywhere, and treat an MFA prompt they did not trigger as an incident to report.</button>
+            <button type="button" class="sample-chip"><span class="sample-chip-category">Physical</span>Tailgating scenario: someone in a delivery uniform asks an employee to hold the badge-locked door open. Show the polite way to refuse, direct them to reception, and report the attempt.</button>
+          </div>
+          <div class="row">
+            <button id="promptNextBtn" class="primary">Continue — pick a template</button>
+            <span id="promptStatus" class="status" role="status" aria-live="polite"></span>
+          </div>
+        </div></div></div>
+      </li>
+
+      <!-- 2 · Template (template-first: chosen BEFORE research) -->
+      <li class="station" id="st-template" data-station="template" data-state="pending">
+        <div class="station-node" aria-hidden="true"><span class="glyph-num">2</span><span class="glyph-check">✓</span></div>
+        <button class="station-head" type="button" aria-expanded="false">
+          <span class="station-title">Template</span>
+          <span class="station-state-label"></span>
+        </button>
+        <div class="station-card-wrap"><div class="station-card-clip"><div class="station-card">
+          <p class="hint">Pick a template — or leave it open and decide at the design station.</p>
+          <p class="hint hidden" id="templateEarlyNote"></p>
+          <div class="ai-pick-row">
+            <button id="aiPickTemplateBtn" type="button" class="ic ic-sparkle">Let AI pick the best template</button>
+            <span id="aiPickNote" class="hint ai-pick-note"></span>
+          </div>
+          <div class="template-gallery" id="templateGalleryEarly"></div>
+          <div class="station-lock-note hidden" id="templateLockNote">Template locked for this run —
+          you can still switch templates at the Design station (station 5) after content approval.</div>
+          <div class="row">
+            <button id="startBtn" class="primary">Research topic &amp; propose angles</button>
+            <span id="startStatus" class="status" role="status" aria-live="polite"></span>
+          </div>
+          <div id="startProgress" class="stage-strip hidden"></div>
+        </div></div></div>
+      </li>
+
+      <!-- 3 · Research (angle selection) -->
+      <li class="station" id="st-research" data-station="research" data-state="pending">
+        <div class="station-node" aria-hidden="true"><span class="glyph-num">3</span><span class="glyph-check">✓</span></div>
+        <button class="station-head" type="button" aria-expanded="false">
+          <span class="station-title">Research</span>
+          <span class="station-state-label"></span>
+        </button>
+        <div class="station-card-wrap"><div class="station-card-clip"><div class="station-card">
+          <p class="hint" id="anglesHint"></p>
+          <div id="angleSuggestionsStrip" class="angle-suggestions hidden"></div>
+          <div class="angle-grid" id="angleGrid"></div>
+          <details class="angles-regen" id="anglesRegenWrap">
+            <summary>Not the right angles? Edit the prompt &amp; regenerate</summary>
+            <textarea id="anglesRegenPrompt" maxlength="2000" rows="2"
+              aria-label="Edit the prompt for angle regeneration"></textarea>
+            <div class="row">
+              <button id="anglesRegenBtn" type="button" class="ic ic-refresh">Regenerate angles</button>
+              <span id="anglesRegenStatus" class="status" role="status" aria-live="polite"></span>
+            </div>
+          </details>
+          <div class="row">
+            <button id="anglesBtn" class="primary">Write the poster content</button>
+            <span id="anglesStatus" class="status" role="status" aria-live="polite"></span>
+          </div>
+          <div id="loopProgress" class="stage-strip hidden"></div>
+        </div></div></div>
+      </li>
+
+      <!-- 4 · Content ⇄ Review (approval: approve / regenerate / feedback / edit) -->
+      <li class="station" id="st-content" data-station="content" data-state="pending">
+        <div class="station-node" aria-hidden="true"><span class="glyph-num">4</span><span class="glyph-check">✓</span></div>
+        <button class="station-head" type="button" aria-expanded="false">
+          <span class="station-title">Content ⇄ Review</span>
+          <span class="station-state-label"></span>
+        </button>
+        <div class="station-card-wrap"><div class="station-card-clip"><div class="station-card">
+          <p class="hint">This draft cleared the internal 95-point review gate. Approve it, send it
+          back to the AI, give feedback, or edit it directly — your edits are applied verbatim.</p>
+          <div class="station-lock-note hidden" id="contentLockNote">Content approved — text is now
+          locked to the design. Fine-tune wording later in the editor (station 7).</div>
+          <div class="review-trail" id="reviewTrail"></div>
+          <div id="latestFeedback"></div>
+          <div class="poster-preview" id="posterPreview"></div>
+          <div class="actions">
+            <button id="approveBtn" class="primary">Approve content</button>
+            <button id="regenToggle">Ask AI to regenerate</button>
+            <button id="feedbackToggle">Give feedback</button>
+            <button id="editToggle">Edit inline</button>
+            <span id="approvalStatus" class="status" role="status" aria-live="polite"></span>
+          </div>
+          <div id="regenPanel" class="subaction hidden">
+            <label>Optional instructions for the regeneration (leave empty for a fresh take)
+              <input id="regenPrompt" maxlength="2000" placeholder="e.g. make it a dos-and-don'ts list, less formal tone"></label>
+            <button id="regenBtn" class="primary">Regenerate</button>
+          </div>
+          <div id="feedbackPanel" class="subaction hidden">
+            <label>Your feedback — it re-enters the quality loop and the AI must address it
+              <textarea id="feedbackText" maxlength="2000" rows="3"
+                placeholder="e.g. the second message is too technical for warehouse staff"></textarea></label>
+            <button id="feedbackBtn" class="primary">Send feedback</button>
+          </div>
+          <div id="editPanel" class="subaction hidden">
+            <p class="hint">Fields with a dashed outline are editable. Edits are saved verbatim — no re-review.</p>
+            <div class="row">
+              <button id="saveEditBtn" class="primary">Save edit</button>
+              <button id="cancelEditBtn">Cancel</button>
+            </div>
+          </div>
+          <div id="approvalLoopProgress" class="stage-strip hidden"></div>
+        </div></div></div>
+      </li>
+
+      <!-- 5 · Design compile (I2: the station-2 pick is THE pick — it compiles
+           automatically; the gallery + AI path live behind "Change template…") -->
+      <li class="station" id="st-design" data-station="design" data-state="pending">
+        <div class="station-node" aria-hidden="true"><span class="glyph-num">5</span><span class="glyph-check">✓</span></div>
+        <button class="station-head" type="button" aria-expanded="false">
+          <span class="station-title">Design compile — your template + approved content</span>
+          <span class="station-state-label"></span>
+        </button>
+        <div class="station-card-wrap"><div class="station-card-clip"><div class="station-card">
+          <p class="hint" id="designAutoNote">The template you picked at station 2 compiles
+          automatically with the approved content — the text stays a separate editable layer,
+          never baked into images.</p>
+          <div class="change-template">
+            <button id="changeTemplateToggle" type="button" class="change-template-toggle hidden"
+              aria-expanded="false" aria-controls="changeTemplateBody">Change template…</button>
+            <div id="changeTemplateBody" class="change-template-body hidden">
+              <div class="design-paths">
+                <div>
+                  <div class="template-gallery" id="templateGallery"></div>
+                  <div class="row">
+                    <button id="applyTemplateBtn" class="primary">Apply selected template</button>
+                  </div>
+                </div>
+                <div class="ai-design">
+                  <h3>Let AI design it</h3>
+                  <p class="hint">A design agent recommends a layout for this exact content; an
+                  independent design reviewer holds it to a 90-point gate before you see it.</p>
+                  <label>Optional design instructions
+                    <input id="dynamicPrompt" maxlength="2000"
+                      placeholder="e.g. dark background, diagonal blocks, one big illustration"></label>
+                  <button id="dynamicBtn" class="primary">Recommend a design</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="row"><span id="designStatus" class="status" role="status" aria-live="polite"></span></div>
+          <div id="designProgress" class="stage-strip hidden"></div>
+          <div class="design-result hidden" id="designResult">
+            <p class="hint" id="designMeta"></p>
+            <div id="designRationale"></div>
+            <p class="hint">The compiled poster renders live in the preview rail on the right.</p>
+            <div class="actions">
+              <button id="acceptDesignBtn" class="primary">Accept design</button>
+              <button id="tryAgainBtn">Try again (AI redesign)</button>
+              <span id="designPreviewStatus" class="status" role="status" aria-live="polite"></span>
+            </div>
+            <div class="subaction">
+              <label>Optional instructions for the redesign — “Try again” applies them
+                <input id="retryPrompt" maxlength="2000"
+                  placeholder="e.g. lighter background, messages in two columns"></label>
+            </div>
+            <div id="retryProgress" class="stage-strip hidden"></div>
+          </div>
+        </div></div></div>
+      </li>
+
+      <!-- 6 · Images (slot fill) -->
+      <li class="station" id="st-images" data-station="images" data-state="pending">
+        <div class="station-node" aria-hidden="true"><span class="glyph-num">6</span><span class="glyph-check">✓</span></div>
+        <button class="station-head" type="button" aria-expanded="false">
+          <span class="station-title">Images</span>
+          <span class="station-state-label"></span>
+        </button>
+        <div class="station-card-wrap"><div class="station-card-clip"><div class="station-card">
+          <p class="hint">Choose how to fill each image slot — generate with AI, upload your own
+          PNG/JPEG, or pick one from the library. Nothing generates until you decide.
+          AI-generated images pass a zero-text gate (up to 5 retries) — poster text stays
+          an editable layer, never baked into pictures.</p>
+          <div id="imageSlotsList"></div>
+          <div class="row"><span id="imageSlotsStatus" class="status" role="status" aria-live="polite"></span></div>
+          <div id="imageSlotsProgress" class="stage-strip hidden"></div>
+          <div class="actions">
+            <button id="skipImageSlotsBtn">Skip images (continue without filling slots)</button>
+            <button id="doneWithImagesBtn" class="primary">Done — continue to refine</button>
+          </div>
+        </div></div></div>
+      </li>
+
+      <!-- 7 · Refine (inline editor — EditorInline mounts here, Phase O7) -->
+      <li class="station" id="st-refine" data-station="refine" data-state="pending">
+        <div class="station-node" aria-hidden="true"><span class="glyph-num">7</span><span class="glyph-check">✓</span></div>
+        <button class="station-head" type="button" aria-expanded="false">
+          <span class="station-title">Refine</span>
+          <span class="station-state-label"></span>
+        </button>
+        <div class="station-card-wrap"><div class="station-card-clip"><div class="station-card">
+          <div id="editorMount">
+            <div class="editor-mount-placeholder">
+              <p>The inline editor loads here once the poster reaches this station.</p>
+            </div>
+          </div>
+          <div class="actions">
+            <a id="openEditorLink" class="btn-link hidden" href="#" target="_blank" rel="noopener" role="button">Open in full page ↗</a>
+            <button id="refineDoneBtn" class="primary">Continue — save the poster</button>
+          </div>
+        </div></div></div>
+      </li>
+
+      <!-- 8 · Save (name + feedback prompt) -->
+      <li class="station" id="st-save" data-station="save" data-state="pending">
+        <div class="station-node" aria-hidden="true"><span class="glyph-num">8</span><span class="glyph-check">✓</span></div>
+        <button class="station-head" type="button" aria-expanded="false">
+          <span class="station-title">Save</span>
+          <span class="station-state-label"></span>
+        </button>
+        <div class="station-card-wrap"><div class="station-card-clip"><div class="station-card">
+          <label>Poster name
+            <input id="saveNameInput" maxlength="120" placeholder="e.g. Phishing red flags — Q3 campaign"></label>
+          <div class="row">
+            <button id="savePosterBtn" class="primary">Save to library</button>
+            <span id="savePosterStatus" class="status" role="status" aria-live="polite"></span>
+          </div>
+          <p class="hint hidden" id="savedSummary"></p>
+          <div class="subaction hidden" id="saveFeedbackBlock">
+            <p class="hint">How did this poster turn out? Your rating feeds the learning memory —
+            future runs on similar topics start from what worked.</p>
+            <div class="actions">
+              <button id="feedbackGoodBtn">Good result</button>
+              <button id="feedbackBadBtn">Needs work</button>
+              <button id="skipFeedbackBtn">Skip</button>
+              <span id="posterFeedbackStatus" class="status" role="status" aria-live="polite"></span>
+            </div>
+            <div class="hidden" id="feedbackRemarksWrap">
+              <label>Optional remarks
+                <textarea id="feedbackRemarks" maxlength="2000" rows="2"
+                  placeholder="e.g. great headline, images felt generic"></textarea></label>
+              <button id="submitFeedbackBtn" class="primary">Send rating</button>
+            </div>
+          </div>
+        </div></div></div>
+      </li>
+
+      <!-- 9 · Translate -->
+      <li class="station" id="st-translate" data-station="translate" data-state="pending">
+        <div class="station-node" aria-hidden="true"><span class="glyph-num">9</span><span class="glyph-check">✓</span></div>
+        <button class="station-head" type="button" aria-expanded="false">
+          <span class="station-title">Translate</span>
+          <span class="station-state-label"></span>
+        </button>
+        <div class="station-card-wrap"><div class="station-card-clip"><div class="station-card">
+          <p class="hint">Translate the poster into the supported languages — each language runs its
+          own fidelity-gated loop, and every variant stays editable afterwards.</p>
+          <div class="translate-targets" id="translateTargets"></div>
+          <div class="row">
+            <button id="startTranslateBtn" class="primary">Translate</button>
+            <button id="skipTranslateBtn">Skip translation</button>
+            <span id="translateStatus" class="status" role="status" aria-live="polite"></span>
+          </div>
+          <div id="translateProgress" class="stage-strip hidden"></div>
+          <div class="lang-status-list" id="langStatusList" role="status" aria-live="polite"></div>
+          <div class="actions hidden" id="translateDoneRow">
+            <button id="translateDoneBtn" class="primary">Continue — export</button>
+          </div>
+        </div></div></div>
+      </li>
+
+      <!-- 10 · Export (O9 engine — fully client-side via js/export.js) -->
+      <li class="station" id="st-export" data-station="export" data-state="pending">
+        <div class="station-node" aria-hidden="true"><span class="glyph-num">10</span><span class="glyph-check">✓</span></div>
+        <button class="station-head" type="button" aria-expanded="false">
+          <span class="station-title">Export</span>
+          <span class="station-state-label"></span>
+        </button>
+        <div class="station-card-wrap"><div class="station-card-clip"><div class="station-card">
+          <p class="hint">Everything renders in your browser from the saved poster canvas —
+          PPTX with real editable text boxes, a self-contained HTML file with selectable text,
+          or a full-resolution JPEG. Saved posters also stay in the <a href="library.html">Library</a>.</p>
+          <div class="export-controls">
+            <label>Orientation
+              <select id="exportOrientation">
+                <option value="portrait">Portrait</option>
+                <option value="landscape">Landscape</option>
+                <option value="both">Both (two files — one per orientation)</option>
+              </select></label>
+            <label>Language
+              <select id="exportLanguage">
+                <option value="en">English</option>
+              </select></label>
+          </div>
+          <div class="actions">
+            <button id="exportPptBtn" class="primary">Export PPT</button>
+            <button id="exportHtmlBtn">Export HTML</button>
+            <button id="exportJpegBtn">Export JPEG</button>
+            <span id="exportStatus" class="status" role="status" aria-live="polite"></span>
+          </div>
+          <div class="actions">
+            <button id="newPosterBtn">Create another poster</button>
+          </div>
+        </div></div></div>
+      </li>
+
+    </ol>
+
+    <!-- ── reroute panel (Phase O6) — slim sticky footer under the line ─────── -->
+    <div class="reroute-panel hidden" id="reroutePanel">
+      <button class="reroute-head" id="rerouteToggle" type="button" aria-expanded="false">
+        <span class="reroute-title">Not happy? Reroute the pipeline</span>
+        <span class="reroute-caret" aria-hidden="true">▾</span>
+      </button>
+      <div class="reroute-body hidden" id="rerouteBody">
+        <p class="hint">Tell the pipeline what's wrong — an agent suggests which stage to jump back
+        to and what the re-run should change. You accept, or override the checkpoint yourself.</p>
+        <label>What should be different?
+          <textarea id="rerouteFeedback" maxlength="2000" rows="2"
+            placeholder="e.g. I want more points and a less formal tone"></textarea></label>
+        <div class="row">
+          <button id="rerouteSuggestBtn" class="primary">Suggest a reroute</button>
+          <span id="rerouteStatus" class="status" role="status" aria-live="polite"></span>
+        </div>
+        <div class="reroute-suggestion hidden" id="rerouteSuggestion">
+          <div class="reroute-target">
+            <span class="reroute-chip" id="rerouteCheckpointLabel"></span>
+          </div>
+          <p class="reroute-reasoning" id="rerouteReasoning"></p>
+          <p class="reroute-adjustments" id="rerouteAdjustments"></p>
+          <div class="actions reroute-actions">
+            <button id="rerouteAcceptBtn" class="primary">Accept — jump &amp; re-run</button>
+            <label class="reroute-override">Override:
+              <select id="rerouteOverrideSelect" aria-label="Override reroute checkpoint"></select>
+            </label>
+            <button id="rerouteGoBtn">Go</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- ── right rail: live preview (O2 preview engine mounts here) ─────────── -->
+  <aside class="rail rail-right" id="railRight" aria-label="Live preview">
+    <div class="rail-head">
+      <h2>Live preview</h2>
+      <div class="orient-tabs" id="orientTabs" role="group" aria-label="Preview orientation">
+        <button type="button" data-orient="portrait" class="active" aria-pressed="true">Portrait</button>
+        <button type="button" data-orient="landscape" aria-pressed="false">Landscape</button>
+        <button type="button" data-orient="both" aria-pressed="false">Both</button>
+      </div>
+    </div>
+    <div class="preview-frame" id="previewPortraitWrap">
+      <span class="preview-label">Portrait · 1414×2000</span>
+      <canvas id="previewPortrait" class="hidden" role="img" aria-label="Live portrait poster preview"></canvas>
+      <p class="preview-empty" id="previewPortraitEmpty"><svg class="empty-shield" viewBox="0 0 48 48" fill="none" aria-hidden="true" focusable="false"><path d="M24 4L6 12v12c0 10.5 7.7 20.3 18 22.6C35.3 44.3 42 34.5 42 24V12L24 4z" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round"/><path d="M16 24l5.5 5.5L33 19" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>The poster renders here as the pipeline
+      builds it — first at design compile, then updated as image slots fill.</p>
+    </div>
+    <div class="preview-both-divider" id="previewBothDivider" aria-hidden="true">Landscape</div>
+    <div class="preview-frame hidden" id="previewLandscapeWrap">
+      <span class="preview-label">Landscape · 2000×1414</span>
+      <canvas id="previewLandscape" class="hidden" role="img" aria-label="Live landscape poster preview"></canvas>
+      <p class="preview-empty" id="previewLandscapeEmpty"><svg class="empty-shield" viewBox="0 0 48 48" fill="none" aria-hidden="true" focusable="false"><path d="M24 4L6 12v12c0 10.5 7.7 20.3 18 22.6C35.3 44.3 42 34.5 42 24V12L24 4z" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round"/><path d="M16 24l5.5 5.5L33 19" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Pick a template to see its landscape
+      preview — the landscape canvas itself compiles at design v2.</p>
+    </div>
+  </aside>
+</div>
+
+<!-- drawer toggles (rails become slide-overs below 1280px) -->
+<button id="drawerLeftBtn" class="drawer-toggle left" type="button"
+  aria-controls="railLeft" aria-expanded="false">Activity</button>
+<button id="drawerRightBtn" class="drawer-toggle right" type="button"
+  aria-controls="railRight" aria-expanded="false">Preview</button>
+<div id="drawerBackdrop" class="drawer-backdrop hidden" aria-hidden="true"></div>
+
+<!-- Template preview modal (step-2 gallery "Preview" button) -->
+<div id="templatePreviewModal" class="modal hidden" role="dialog" aria-modal="true" aria-label="Template preview">
+  <div class="modal-inner tpl-preview-inner">
+    <div class="modal-header">
+      <h3 id="tplPreviewTitle">Template preview</h3>
+      <div id="tplPreviewTabs" class="tpl-preview-tabs" role="group" aria-label="Preview orientation">
+        <button type="button" data-orient="portrait" class="active">Portrait</button>
+        <button type="button" data-orient="landscape">Landscape</button>
+      </div>
+      <button id="closeTplPreview" aria-label="Close template preview">&#x2715;</button>
+    </div>
+    <div class="tpl-preview-stage"><canvas id="tplPreviewCanvas"></canvas></div>
+    <p id="tplPreviewStatus" class="hint" role="status" aria-live="polite"></p>
+  </div>
+</div>
+
+<!-- Library picker modal (image slot fill) -->
+<div id="libraryModal" class="modal hidden" role="dialog" aria-modal="true" aria-label="Pick from image library">
+  <div class="modal-inner">
+    <div class="modal-header">
+      <h3>Pick from image library</h3>
+      <button id="closeLibraryModal" aria-label="Close image library dialog">&#x2715;</button>
+    </div>
+    <p id="libraryModalEmpty" class="hint hidden">No images in the library yet. Upload images on the Library page.</p>
+    <div class="image-grid" id="libraryModalGrid"></div>
+    <div class="row">
+      <button id="confirmLibraryPick" class="primary" disabled>Assign selected</button>
+      <span id="libraryModalStatus" class="status" role="status" aria-live="polite"></span>
+    </div>
+  </div>
+</div>
+
+<script src="vendor/fabric.min.js"></script>
+<script src="js/stream.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/preview_engine.js"></script>
+<script src="vendor/pptxgen.bundle.js"></script>
+<script src="js/export.js"></script>
+<script src="js/editor_inline.js"></script>
+<script src="js/pipeline_theater.js"></script>
+<script src="js/create_page.js"></script>
+</body>
+</html>

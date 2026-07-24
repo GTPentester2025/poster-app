@@ -1,0 +1,711 @@
+/* Metro create page (Phase O1) — 3-panel shell + metro line visual language.
+   Uses base.css design tokens only. Restrained motion; prefers-reduced-motion
+   collapses every animation/transition to instant state changes. */
+
+<!--
+/* POLISH-NOTES (2026 polish pass)
+  Tokens (defined in base.css :root):
+  · Semantic color aliases — --amber #e2a13d (rework/warn), --violet #b06ee8
+    (translated/edited), --danger→--red, --success→--green, --focus-ring→--gold.
+    All repeated raw hexes in base/metro/editor promoted to these.
+  · Focus: one global :focus-visible ring, 2px solid var(--focus-ring),
+    2px offset — never removed, applies to buttons/links/inputs/summary/[tabindex].
+  · Elevation scale: --shadow-1 (feed cards/hover), --shadow-2 (station cards,
+    sticky reroute), --shadow-3 (canvas, modal, drawers). No ad-hoc shadows.
+  · z-index scale: --z-sticky 40 < --z-topbar 50 < --z-float 90 < --z-modal 100
+    < --z-drawer-btn 110 < --z-backdrop 115 < --z-drawer 120.
+  · Radius scale: --radius 12px (cards/panels), --radius-sm 8px (buttons/inputs/
+    notes), 999px (pills). Spacing stays on the existing 4/8px rhythm.
+  · Type: --font-head Montserrat (headings/brand/station titles, 700-800),
+    --font Inter (body, 400-600; Segoe fallback). Labels 500. Numeric UI
+    (score chips, counters, timestamps, dimensions) uses tabular-nums.
+  · Motion: 150-300ms, ease-out on enter / ease-in on exit; press feedback
+    scale(0.97); rail fill + card expand are transform/grid-rows only (no
+    layout-shifting transforms). base.css carries a global reduced-motion
+    kill-switch; the block at the bottom of this file remains as a belt-and-
+    braces refinement for the metro-specific animations.
+  · Async: .is-loading (inline spinner) toggled beside existing .disabled
+    sites; body.run-busy drives skeleton shimmer on the preview/activity
+    empty states while a pipeline request is in flight. */
+-->
+
+
+/* ── 3-panel grid shell ────────────────────────────────────────────────────── */
+
+.create-shell {
+  display: grid;
+  grid-template-columns: 320px minmax(0, 1fr) 380px;
+  gap: 22px;
+  max-width: 1680px;
+  margin: 0 auto;
+  padding: 24px 28px 60px;
+  align-items: start;
+}
+
+.rail {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+.rail-left {
+  position: sticky; top: 74px;
+  max-height: calc(100vh - 98px);
+  max-height: calc(100dvh - 98px);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+.rail-right {
+  position: sticky; top: 74px;
+  max-height: calc(100vh - 98px);
+  max-height: calc(100dvh - 98px);
+  overflow-y: auto;
+  padding: 14px 16px 18px;
+}
+.rail-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 13px 16px 11px;
+  border-bottom: 1px solid var(--line);
+  flex-shrink: 0;
+}
+.rail-right .rail-head { padding: 0 0 11px; margin-bottom: 2px; }
+.rail-head h2 {
+  margin: 0; font-size: 12px; font-weight: 800;
+  text-transform: uppercase; letter-spacing: 0.7px; color: var(--muted);
+  white-space: nowrap;
+}
+.rail-count { font-size: 11px; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.rail-collapse-btn { padding: 3px 9px; font-size: 12px; line-height: 1.2; }
+
+/* collapsed left rail (desktop) */
+body.left-collapsed .create-shell { grid-template-columns: 46px minmax(0, 1fr) 380px; }
+body.left-collapsed .rail-left .rail-body,
+body.left-collapsed .rail-left .rail-head h2,
+body.left-collapsed .rail-left .rail-count { display: none; }
+body.left-collapsed .rail-left .rail-head { border-bottom: none; padding: 10px 6px; justify-content: center; }
+
+/* ── left rail: pipeline activity feed ─────────────────────────────────────── */
+
+/* rail tools (Phase O8): run-scoped chain backfill + call filter.
+   Progressive disclosure — the chain/filter toolbox is meaningless before a
+   run produces events, so it stays hidden until the feed has content (or a run
+   is active). This clears the biggest at-rest clutter in the left rail. */
+.rail-tools {
+  padding: 9px 12px 10px;
+  border-bottom: 1px solid var(--line);
+  display: none; flex-direction: column; gap: 7px;
+  flex-shrink: 0;
+}
+body.run-active .rail-tools,
+.rail-left:has(#activityFeed > *) .rail-tools { display: flex; }
+.rail-tools-row { display: flex; align-items: center; gap: 8px; }
+.rail-tools-row button { padding: 4px 10px; font-size: 11.5px; white-space: nowrap; }
+.rail-tools-status { font-size: 11px; color: var(--muted); }
+.rail-tools-status.err { color: var(--red); }
+.rail-tools input[type="search"] {
+  width: 100%; padding: 5px 9px; font-size: 12px; min-height: 32px;
+  background: var(--bg2); border: 1px solid var(--line); border-radius: 6px;
+  color: var(--text);
+}
+body.left-collapsed .rail-left .rail-tools { display: none; }
+@media (max-width: 1279px) {
+  body.left-collapsed.run-active .rail-left .rail-tools,
+  body.left-collapsed .rail-left:has(#activityFeed > *) .rail-tools { display: flex; }
+}
+
+.rail-body { overflow-y: auto; padding: 10px 12px 16px; flex: 1; }
+.feed-empty {
+  color: var(--muted); font-size: 12.5px; padding: 8px 4px;
+  display: flex; flex-direction: column; align-items: center; text-align: center;
+}
+
+/* skeleton shimmer while a pipeline request is in flight (body.run-busy is
+   toggled at the existing watch/unwatch progress sites) */
+body.run-busy .feed-empty,
+body.run-busy .preview-empty {
+  position: relative; overflow: hidden; border-radius: var(--radius-sm);
+}
+body.run-busy .feed-empty::after,
+body.run-busy .preview-empty::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(100deg,
+    transparent 25%, rgba(227, 175, 50, 0.09) 50%, transparent 75%);
+  animation: skeleton-sweep 1.8s ease-in-out infinite;
+}
+@keyframes skeleton-sweep {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(100%); }
+}
+
+.feed-group {
+  display: flex; align-items: center; gap: 8px;
+  margin: 14px 0 6px;
+  font-size: 10.5px; font-weight: 800;
+  text-transform: uppercase; letter-spacing: 0.6px; color: var(--gold);
+  /* sticky within the .rail-body scroll container */
+  position: sticky; top: 0; z-index: 1;
+  background: var(--card); /* matches rail background so cards scroll under it */
+  padding: 4px 0 2px;
+}
+.feed-group:first-child { margin-top: 2px; }
+.feed-group::after { content: ''; flex: 1; height: 1px; background: var(--line); }
+
+/* duration chip on egress/backfilled call cards */
+.feed-card .fc-dur-chip {
+  display: inline-block; padding: 0 7px; border-radius: 999px;
+  background: var(--bg); border: 1px solid var(--line);
+  font-size: 10px; color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.feed-card {
+  background: var(--bg2); border: 1px solid var(--line); border-radius: var(--radius-sm);
+  padding: 7px 9px; margin-bottom: 6px; font-size: 12px; cursor: pointer;
+  transition: border-color 0.15s ease-out;
+}
+.feed-card:hover { border-color: var(--muted); }
+.feed-card .fc-line { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: baseline; }
+.feed-card .fc-ts { color: var(--muted); font-size: 10.5px; font-variant-numeric: tabular-nums; }
+.feed-card .fc-agent { color: var(--text); font-weight: 600; }
+.feed-card .fc-type { color: var(--muted); font-size: 11px; }
+.feed-card.type-error .fc-type { color: var(--danger); font-weight: 700; }
+.feed-card.type-rework .fc-type { color: var(--amber); font-weight: 700; }
+.feed-card.type-gate_check .fc-type, .feed-card.type-review_verdict .fc-type { color: var(--blue); }
+.feed-card.type-stage_end .fc-type { color: var(--success); }
+.feed-card .fc-meta { margin-top: 4px; font-size: 11px; color: var(--muted); }
+.feed-card .fc-meta strong { color: var(--text); font-weight: 600; }
+.feed-card .fc-note {
+  margin-top: 5px; padding: 5px 8px; font-size: 11.5px; color: var(--muted);
+  background: var(--bg); border-left: 2px solid var(--amber); border-radius: 0 6px 6px 0;
+}
+.feed-card .fc-verdict { margin-top: 5px; font-size: 11.5px; font-variant-numeric: tabular-nums; }
+.feed-card .fc-verdict .pass { color: var(--success); font-weight: 700; }
+.feed-card .fc-verdict .fail { color: var(--amber); font-weight: 700; }
+.feed-card .fc-detail { display: none; margin-top: 6px; }
+.feed-card.open .fc-detail { display: block; }
+.feed-card pre {
+  white-space: pre-wrap; word-break: break-word;
+  background: var(--bg); border-radius: 6px; padding: 6px 8px; margin: 6px 0 0;
+  max-height: 180px; overflow-y: auto; font-size: 10.5px; color: var(--muted);
+}
+/* egress-log hook (Phase O8): expand → lazy-fetched masked prompt detail */
+.feed-card details.egress-hook { margin-top: 5px; }
+.feed-card details.egress-hook summary {
+  cursor: pointer; font-size: 11px; color: var(--gold); font-weight: 600;
+  list-style-position: inside;
+}
+.feed-card details.egress-hook p {
+  margin: 4px 0 0; font-size: 11px; color: var(--muted);
+  background: var(--bg); border: 1px dashed var(--line); border-radius: 6px; padding: 6px 8px;
+}
+
+/* structured masked-prompt detail (all content rendered via textContent) */
+.egress-detail { margin-top: 5px; cursor: default; }
+.egress-detail .eg-head {
+  display: flex; flex-wrap: wrap; gap: 4px 10px;
+  font-size: 11px; color: var(--text); font-weight: 600;
+  background: var(--bg); border-radius: 6px; padding: 5px 8px;
+  font-variant-numeric: tabular-nums;
+}
+.egress-detail .eg-head .eg-status-ok { color: var(--success); }
+.egress-detail .eg-head .eg-status-error { color: var(--danger); }
+.egress-detail .eg-legend {
+  margin: 5px 0 0; font-size: 10.5px; color: var(--muted); font-style: italic;
+  border-left: 2px solid var(--gold); padding: 3px 8px;
+}
+.egress-detail h4 {
+  margin: 8px 0 0; font-size: 10.5px; font-weight: 800;
+  text-transform: uppercase; letter-spacing: 0.6px; color: var(--gold);
+}
+.egress-detail pre { max-height: 260px; }
+.egress-detail .eg-more {
+  margin-top: 4px; padding: 3px 10px; font-size: 11px;
+}
+
+/* backfilled call cards (Load full prompt chain) */
+.feed-card.egress-card { cursor: default; }
+.feed-card .fc-dur { color: var(--muted); font-size: 10.5px; font-variant-numeric: tabular-nums; }
+.feed-card .fc-status-ok { color: var(--success); font-size: 11px; font-weight: 600; }
+.feed-card .fc-status-error { color: var(--danger); font-size: 11px; font-weight: 700; }
+
+/* ── center: metro line + stations ─────────────────────────────────────────── */
+
+.metro-main h1 { margin-top: 0; }
+
+.metro-line { list-style: none; margin: 20px 0 0; padding: 0; }
+
+.station {
+  position: relative;
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  column-gap: 14px;
+  padding-bottom: 26px;
+  /* auto-scroll target: clear the sticky topbar so the active station head
+     is never hidden underneath it */
+  scroll-margin-top: 72px;
+}
+.station:last-child { padding-bottom: 0; }
+
+/* connecting rail: static track (::before) + fill segment (::after) that
+   grows top-down as the station completes — transform-only, no repaint jank */
+.station::before {
+  content: '';
+  position: absolute;
+  left: 20px; top: 38px; bottom: -2px;
+  width: 2px;
+  background: var(--line);
+}
+.station::after {
+  content: '';
+  position: absolute;
+  left: 20px; top: 38px; bottom: -2px;
+  width: 2px;
+  background: var(--success);
+  transform: scaleY(0);
+  transform-origin: top;
+  transition: transform 0.45s ease-out, opacity 0.3s ease-out;
+  opacity: 0;
+}
+.station:last-child::before, .station:last-child::after { display: none; }
+.station[data-state="done"]::after { transform: scaleY(1); opacity: 1; }
+.station[data-state="active"]::after {
+  background: linear-gradient(to bottom, var(--gold), transparent);
+  transform: scaleY(0.5);
+  opacity: 1;
+}
+
+/* station node glyphs */
+.station-node {
+  position: relative; z-index: 1;
+  grid-row: 1 / span 2;
+  width: 34px; height: 34px; margin-left: 4px; margin-top: 1px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--bg); border: 2px solid var(--line);
+  color: var(--muted); font-weight: 800; font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  transition: border-color 0.2s ease-out, background-color 0.2s ease-out, color 0.2s ease-out;
+}
+.station-node .glyph-check { display: none; }
+/* pending = hollow (default above) */
+.station[data-state="active"] .station-node {
+  border-color: var(--gold); background: var(--gold); color: #16130a;
+  animation: station-pulse 1.6s ease-in-out infinite;
+}
+.station[data-state="done"] .station-node {
+  border-color: var(--success); background: var(--success); color: #0c0d10;
+}
+.station[data-state="done"] .station-node .glyph-num { display: none; }
+.station[data-state="done"] .station-node .glyph-check { display: inline; }
+.station[data-state="rework"] .station-node {
+  border-color: var(--amber); color: var(--amber); background: var(--bg);
+}
+.station[data-state="rework"] .station-node::after {
+  content: '';
+  position: absolute; inset: -7px;
+  border: 2px dashed var(--amber); border-radius: 50%;
+  opacity: 0.8;
+  animation: station-spin 3s linear infinite;
+}
+
+@keyframes station-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(227, 175, 50, 0.4); }
+  50% { box-shadow: 0 0 12px 4px rgba(227, 175, 50, 0.35); }
+}
+@keyframes station-spin { to { transform: rotate(360deg); } }
+
+/* station header (click to expand/collapse completed stations) */
+.station-head {
+  background: none; border: none; padding: 6px 0 8px;
+  width: 100%; text-align: left; cursor: pointer;
+  display: flex; align-items: baseline; gap: 10px;
+}
+.station-head:hover { border: none; transform: none; }
+.station-head:active { transform: none; }
+.station-head:hover .station-title { color: var(--gold); }
+.station[data-state="pending"] .station-head { cursor: default; }
+.station-title {
+  font-family: var(--font-head);
+  font-size: 16px; font-weight: 700; color: var(--text); transition: color 0.15s ease-out;
+}
+.station[data-state="pending"] .station-title { color: var(--muted); }
+.station-state-label {
+  font-size: 10.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.6px;
+  color: var(--muted);
+}
+.station[data-state="active"] .station-state-label { color: var(--gold); }
+.station[data-state="done"] .station-state-label { color: var(--success); }
+.station[data-state="rework"] .station-state-label { color: var(--amber); }
+
+/* slide-expand card (grid-rows trick keeps it CSP/JS-free): ease-out on
+   expand, ease-in on collapse — staggered choreography: the closing card
+   uses the collapse cubic-bezier with NO delay; the opening card waits
+   ~120ms via transition-delay so it starts expanding after the previous
+   card has begun to close (reads as one continuous sequential motion).
+   data-state drives the delay so no JS state machine is needed — a newly
+   activated station's wrap always carries the expand delay; a station that
+   is collapsing (open class removed) immediately begins closing. */
+.station-card-wrap {
+  grid-column: 2;
+  display: grid; grid-template-rows: 0fr;
+  transition: grid-template-rows 0.28s cubic-bezier(0.4, 0, 1, 1);
+}
+.station.open .station-card-wrap {
+  grid-template-rows: 1fr;
+  transition-timing-function: cubic-bezier(0, 0, 0.2, 1);
+  /* stagger: expanding card waits for the collapsing one to start moving */
+  transition-delay: 120ms;
+}
+/* no stagger on exit (closing always instant relative to expand) */
+.station:not(.open) .station-card-wrap {
+  transition-delay: 0ms;
+}
+.station-card-clip { overflow: hidden; min-height: 0; }
+.station-card {
+  background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 18px 20px; margin: 2px 0 4px;
+  box-shadow: var(--shadow-2);
+}
+.template-gallery.gallery-locked { pointer-events: none; opacity: 0.55; }
+
+.station-lock-note {
+  background: var(--bg2); border: 1px dashed var(--line); border-radius: 8px;
+  padding: 8px 12px; font-size: 12.5px; color: var(--muted); margin-bottom: 12px;
+}
+
+/* ── design station (I2): "Change template…" disclosure ────────────────────
+   The station-2 template pick compiles automatically — the gallery + AI path
+   sit collapsed behind this secondary toggle so the template is never
+   re-asked. With no station-2 pick the body shows directly (first selection). */
+.change-template { margin: 2px 0 4px; }
+.change-template-toggle {
+  font-size: 12.5px; padding: 6px 14px;
+  color: var(--muted);
+  background: var(--bg2); border: 1px dashed var(--line); border-radius: 999px;
+}
+.change-template-toggle:hover { color: var(--gold); border-color: var(--gold); }
+.change-template-toggle[aria-expanded="true"] { color: var(--gold); border-style: solid; }
+.change-template-body { margin-top: 12px; }
+
+/* design result block (canvas preview lives in the right rail) */
+.design-result { border-top: 1px solid var(--line); margin-top: 16px; padding-top: 14px; }
+
+/* export station (O9): orientation + language selects above the format buttons */
+.export-controls { display: flex; flex-wrap: wrap; gap: 14px; margin: 10px 0 4px; }
+.export-controls label { flex: 1; min-width: 170px; margin-bottom: 10px; }
+
+/* translate station */
+.translate-targets { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 14px; }
+.translate-targets label {
+  display: flex; align-items: center; gap: 8px; margin: 0;
+  font-size: 13px; color: var(--text); font-weight: 500;
+}
+.translate-targets input[type="radio"], .translate-targets input[type="checkbox"] {
+  width: auto; display: inline-block; margin: 0;
+}
+.lang-status-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.lang-status-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 3px 11px; border-radius: 999px; font-size: 11.5px; font-weight: 600;
+  background: var(--bg2); border: 1px solid var(--line); color: var(--muted);
+}
+.lang-status-chip.translated, .lang-status-chip.done { color: var(--success); border-color: var(--success); }
+.lang-status-chip.edited { color: var(--violet); border-color: var(--violet); }
+.lang-status-chip.translating { color: var(--gold); border-color: var(--gold); }
+.lang-status-chip.rework { color: var(--amber); border-color: var(--amber); }
+.lang-status-chip.failed { color: var(--danger); border-color: var(--danger); }
+
+/* ── images station: live attempt line + retry-exhausted failure card (O5) ─── */
+
+/* I4: station banner while the sequential auto-generation run is in flight
+   (aria-live status; the pulsing dot obeys the reduced-motion block below) */
+.images-auto-banner {
+  display: flex; align-items: center; gap: 9px;
+  margin: 10px 0 4px; padding: 8px 12px;
+  background: var(--bg2); border: 1px solid var(--gold); border-radius: var(--radius-sm);
+  color: var(--gold); font-size: 12.5px; font-weight: 600;
+}
+.images-auto-banner::before {
+  content: ''; width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+  background: var(--gold);
+  animation: station-pulse 1.6s ease-in-out infinite;
+}
+
+.slot-live {
+  margin-top: 6px; font-size: 12px; font-weight: 600; color: var(--gold);
+  display: flex; align-items: center; gap: 7px;
+  font-variant-numeric: tabular-nums;
+}
+.slot-live::before {
+  content: ''; width: 8px; height: 8px; border-radius: 50%;
+  background: var(--gold);
+  animation: station-pulse 1.6s ease-in-out infinite;
+}
+.slot-live.retrying { color: var(--amber); }
+.slot-live.retrying::before { background: var(--amber); }
+
+.slot-fail {
+  margin-top: 8px; padding: 10px 12px;
+  background: var(--bg2); border: 1px solid var(--danger); border-radius: var(--radius-sm);
+}
+.slot-fail .slot-fail-title { color: var(--danger); font-weight: 700; font-size: 13px; }
+.slot-fail label { display: block; margin-top: 8px; font-size: 12.5px; color: var(--muted); }
+.slot-fail textarea { width: 100%; margin-top: 4px; resize: vertical; }
+.slot-fail .slot-fail-counter { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.slot-fail .slot-fail-actions {
+  display: flex; align-items: center; gap: 10px; margin-top: 8px; flex-wrap: wrap;
+}
+
+/* ── reroute panel (O6): slim sticky footer card under the metro line ──────── */
+
+.reroute-panel {
+  position: sticky; bottom: 14px; z-index: var(--z-sticky);
+  margin-top: 26px;
+  background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+  box-shadow: var(--shadow-2);
+}
+.reroute-head {
+  width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  background: none; border: none; padding: 11px 16px; cursor: pointer; text-align: left;
+}
+.reroute-head:hover { border: none; }
+.reroute-head:active { transform: none; }
+.reroute-head:hover .reroute-title { color: var(--gold); }
+.reroute-title { font-size: 13.5px; font-weight: 700; color: var(--text); transition: color 0.15s ease-out; }
+.reroute-caret { color: var(--muted); font-size: 12px; transition: transform 0.2s; }
+.reroute-panel.open .reroute-caret { transform: rotate(180deg); }
+.reroute-body { padding: 0 16px 14px; border-top: 1px solid var(--line); }
+.reroute-body > .hint { margin-top: 10px; }
+.reroute-body textarea { width: 100%; resize: vertical; }
+.reroute-suggestion {
+  margin-top: 12px; padding: 10px 12px;
+  background: var(--bg2); border: 1px solid var(--gold); border-radius: 8px;
+}
+.reroute-chip {
+  display: inline-flex; align-items: center;
+  padding: 3px 12px; border-radius: 999px;
+  font-size: 12px; font-weight: 700;
+  background: var(--bg); border: 1px solid var(--gold); color: var(--gold);
+}
+.reroute-reasoning { margin: 8px 0 0; font-size: 12.5px; color: var(--text); }
+.reroute-adjustments {
+  margin: 6px 0 0; padding: 6px 9px; font-size: 12px; color: var(--muted);
+  background: var(--bg); border-left: 2px solid var(--gold); border-radius: 0 6px 6px 0;
+}
+.reroute-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+.reroute-override {
+  display: inline-flex; align-items: center; gap: 6px; margin: 0;
+  font-size: 12px; color: var(--muted);
+}
+.reroute-override select { width: auto; font-size: 12px; padding: 5px 8px; min-height: 34px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .slot-live::before { animation: none !important; }
+  .images-auto-banner::before { animation: none !important; }
+  .reroute-caret { transition: none !important; }
+}
+
+/* ── topbar active-run indicator dot ───────────────────────────────────────── */
+/* A small gold dot appended to the "Create" nav link pulses while any station
+   carries data-state="active". Implemented via :has() on the topbar nav anchor
+   that targets .metro-line [data-state="active"] — see index.html for the
+   Create link id used to scope this. When :has() is unsupported, the dot is
+   unhidden by a classList mirror line in setStationState (create_page.js). */
+
+.topbar-run-dot {
+  display: inline-block;
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--gold);
+  margin-left: 6px; vertical-align: middle;
+  /* hidden by default; shown when any station is active */
+  opacity: 0;
+  transition: opacity 0.2s ease-out;
+}
+/* :has() path — no JS needed when the browser supports it.
+   body:has() looks anywhere in the document for an active station, then
+   applies to the dot inside the topbar (both are in body). */
+body:has(.metro-line [data-state="active"]) .topbar-run-dot,
+/* classList fallback path (toggled by setStationState in create_page.js) */
+body.run-active .topbar-run-dot {
+  opacity: 1;
+  animation: topbar-dot-pulse 1.8s ease-in-out infinite;
+}
+@keyframes topbar-dot-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(227, 175, 50, 0.45); }
+  50%       { box-shadow: 0 0 6px 3px rgba(227, 175, 50, 0.3); }
+}
+
+/* ── prompt station: sample chip category prefix labels ────────────────────── */
+/* Wraps the existing .sample-chip — the prefix is a small badge inside the
+   chip; the long text stays as-is after the badge. */
+.sample-chip-category {
+  display: inline-block;
+  padding: 1px 7px; border-radius: 999px;
+  font-size: 10.5px; font-weight: 800; letter-spacing: 0.4px;
+  background: rgba(227, 175, 50, 0.12); color: var(--gold);
+  margin-right: 7px; flex-shrink: 0;
+}
+
+/* ── prompt textarea auto-grow ─────────────────────────────────────────────── */
+/* CSS field-sizing lets the textarea grow with its content up to max-height.
+   The resize handle is kept so users can still size manually. */
+.prompt-box {
+  field-sizing: content;
+  min-height: 120px;
+  max-height: 320px;
+}
+
+/* ── empty-state shield SVG motif ──────────────────────────────────────────── */
+/* One reusable brand-gold shield outline. Centered inside empty state blocks;
+   sized via CSS so a single markup element works everywhere. */
+.empty-shield {
+  display: block;
+  margin: 0 auto 14px;
+  width: 48px; height: 48px;
+  color: var(--gold); /* SVG uses currentColor */
+  opacity: 0.35; /* ghost-geometry: present but not distracting */
+  flex-shrink: 0;
+}
+/* Larger variant for the right-rail preview empty state */
+.preview-empty .empty-shield { width: 40px; height: 40px; margin-bottom: 10px; }
+/* Slightly smaller for the left-rail feed empty state */
+.feed-empty .empty-shield { width: 36px; height: 36px; margin-bottom: 8px; }
+
+/* refine station editor mount */
+.editor-mount-placeholder {
+  border: 1px dashed var(--line); border-radius: var(--radius);
+  padding: 26px 20px; text-align: center; color: var(--muted); font-size: 13.5px;
+  margin-bottom: 14px;
+}
+
+/* ── right rail: live preview ──────────────────────────────────────────────── */
+
+/* segmented control (replaces three parallel tab buttons): one inset track,
+   connected segments, the active segment filled — reads as a single control,
+   not three competing buttons. */
+.orient-tabs {
+  display: inline-flex; gap: 0; padding: 2px;
+  background: var(--bg2); border: 1px solid var(--line); border-radius: 999px;
+}
+.orient-tabs button {
+  padding: 5px 13px; font-size: 11px; font-weight: 700;
+  letter-spacing: 0.2px; line-height: 1.1;
+  border: none; border-radius: 999px; background: none; color: var(--muted);
+  transition: color 0.15s ease-out, background-color 0.15s ease-out;
+}
+.orient-tabs button:hover { border: none; color: var(--text); background: none; }
+.orient-tabs button.active {
+  color: #16130a; background: var(--gold); border-color: transparent;
+  box-shadow: 0 1px 4px -1px rgba(227, 175, 50, 0.5);
+}
+.orient-tabs button.active:hover { color: #16130a; background: var(--gold); }
+.orient-tabs button:focus-visible { outline-offset: 1px; }
+
+.preview-frame {
+  background: var(--bg2); border: 1px solid var(--line); border-radius: 10px;
+  padding: 12px 14px 16px; margin-top: 12px;
+  display: flex; flex-direction: column; align-items: center;
+}
+.preview-label {
+  align-self: flex-start;
+  font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.7px;
+  color: var(--muted); margin-bottom: 9px;
+  font-variant-numeric: tabular-nums;
+}
+.preview-frame canvas {
+  border-radius: 4px; box-shadow: var(--shadow-3); max-width: 100%;
+}
+.preview-empty {
+  width: 100%; margin: 0; padding: 44px 12px;
+  border: 1px dashed var(--line); border-radius: 8px;
+  color: var(--muted); font-size: 12px; text-align: center;
+  display: flex; flex-direction: column; align-items: center;
+}
+#previewLandscapeWrap .preview-empty { padding: 30px 12px; }
+
+/* preview canvas entrance: first render fades in from slightly smaller scale
+   (applied by toggling .canvas-entered off→on at the existing show site;
+   the hidden class is already removed by the preview engine, so the entrance
+   triggers naturally the first time the canvas becomes visible) */
+.preview-frame canvas.canvas-entered {
+  animation: canvas-entrance 0.25s cubic-bezier(0, 0, 0.2, 1) both;
+}
+@keyframes canvas-entrance {
+  from { opacity: 0; transform: scale(0.98); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+/* "Both" mode: labeled divider between the two preview frames.
+   Hidden when the landscape frame is hidden (portrait-only or landscape-only
+   mode); shown only when both frames are visible (both mode). */
+.preview-both-divider {
+  display: none; /* hidden by default */
+  width: 100%; align-items: center; gap: 10px;
+  margin: 6px 0 2px; padding: 0 2px;
+  font-size: 10px; font-weight: 800; text-transform: uppercase;
+  letter-spacing: 0.7px; color: var(--gold);
+}
+.preview-both-divider::before,
+.preview-both-divider::after {
+  content: ''; flex: 1; height: 1px; background: var(--line);
+}
+/* Show divider only when landscape frame is not hidden (= both mode).
+   :has() is the pure-CSS path; the JS classList mirror is the fallback. */
+.rail-right:has(#previewLandscapeWrap:not(.hidden)) #previewBothDivider,
+body.preview-both #previewBothDivider {
+  display: flex;
+}
+
+/* ── drawers below 1280px ──────────────────────────────────────────────────── */
+
+.drawer-toggle {
+  display: none;
+  position: fixed; bottom: 18px; z-index: var(--z-drawer-btn);
+  padding: 9px 16px; border-radius: 999px; font-size: 13px;
+  background: var(--card); border: 1px solid var(--line);
+  box-shadow: var(--shadow-2);
+}
+.drawer-toggle.left { left: 18px; }
+.drawer-toggle.right { right: 18px; }
+.drawer-backdrop { position: fixed; inset: 0; z-index: var(--z-backdrop); background: rgba(0, 0, 0, 0.55); }
+
+@media (max-width: 1279px) {
+  .create-shell { grid-template-columns: 1fr; padding: 20px 18px 84px; }
+  .rail {
+    position: fixed; top: 0; bottom: 0; z-index: var(--z-drawer);
+    height: 100%; max-height: none; border-radius: 0;
+    box-shadow: var(--shadow-3);
+    transition: transform 0.25s ease-out;
+  }
+  .rail-left { left: 0; width: min(320px, 86vw); transform: translateX(-100%); border-left: none; }
+  .rail-right { right: 0; width: min(380px, 90vw); transform: translateX(100%); border-right: none; }
+  .rail.drawer-open { transform: translateX(0); }
+  .drawer-toggle { display: inline-flex; }
+  .rail-collapse-btn { display: none; }
+  body.left-collapsed .create-shell { grid-template-columns: 1fr; }
+  body.left-collapsed .rail-left .rail-body,
+  body.left-collapsed .rail-left .rail-head h2,
+  body.left-collapsed .rail-left .rail-count { display: revert; }
+}
+
+/* ── reduced motion: everything snaps, nothing pulses/spins/slides ───────────
+   (base.css carries the global kill-switch; this block pins the metro-specific
+   pieces explicitly as a belt-and-braces refinement) */
+
+@media (prefers-reduced-motion: reduce) {
+  .station::before, .station::after, .station-node, .station-card-wrap,
+  .rail, .feed-card, .station-title {
+    transition: none !important;
+  }
+  /* stagger delay collapses to zero — both transitions fire simultaneously */
+  .station.open .station-card-wrap,
+  .station:not(.open) .station-card-wrap { transition-delay: 0ms !important; }
+  .station[data-state="active"] .station-node { animation: none !important; }
+  .station[data-state="rework"] .station-node::after { animation: none !important; }
+  .stage-badge.active { animation: none !important; }
+  body.run-busy .feed-empty::after,
+  body.run-busy .preview-empty::after { animation: none !important; display: none; }
+  button.is-loading::before { animation: none !important; }
+  /* T6 additions */
+  .preview-frame canvas.canvas-entered { animation: none !important; }
+  .topbar-run-dot { animation: none !important; transition: none !important; }
+}

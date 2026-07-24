@@ -1,0 +1,586 @@
+/* Pipeline Theater — high-grade live pipeline overlay.
+   Dark premium palette (page tokens: --bg #0c0d10 base, --gold accent,
+   Montserrat/Inter). The full agent graph renders upfront as fixed stage
+   columns wired by orthogonal SVG rails routed in the gutters between
+   columns; nodes only change STATE. A beer-themed pour bar and rising
+   bubbles keep long silent work alive.
+
+   LAYOUT SYSTEM (rebuilt for zero overlap at 1000–1600px):
+   • The panel is width:min(1200px, 96vw). The header, metro strip and
+     caption/pour sit in fixed-height rows that never move.
+   • The graph is a 6-track CSS grid; each track has a fixed minimum width
+     (--pt-col) and a fixed gutter (--pt-gutter). Every column is a single
+     vertical stack — ONE node per row — so node boxes are uniform width and
+     height and never fold into a cramped 2-wide grid.
+   • The graph has an intrinsic min-width (6 columns + gutters). When the
+     panel is narrower than that the .theater-stage scrolls horizontally —
+     the graph scales gracefully instead of squashing.
+   • Rails are orthogonal elbows drawn in the gutters (exit a node's right
+     edge, run into the gutter channel, drop vertically, enter the target's
+     left edge). Same-column links run in a thin left-side channel. No rail
+     ever crosses a node box; packets ride the rails.
+   Motion: 150-520ms transform/opacity curves, all interruptible.
+   prefers-reduced-motion drops travel/pulse (JS + the query at the bottom);
+   state colours always remain. */
+
+/* dim the page behind the overlay */
+body.theater-dim > *:not(#pipelineTheater) {
+  transition: filter 0.4s ease;
+  filter: brightness(0.4) saturate(0.7);
+}
+
+.theater {
+  --pt-col: 150px;            /* min width of one stage column track      */
+  --pt-gutter: 32px;          /* horizontal channel between columns        */
+  --pt-node-h: 52px;          /* uniform node box height                   */
+  --pt-row-gap: 8px;          /* vertical rhythm between nodes             */
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 5vh 20px 20px;
+  pointer-events: none;             /* page stays interactive around it */
+  opacity: 0;
+  transition: opacity 0.35s ease;
+  font-family: var(--font, 'Inter', system-ui, sans-serif);
+}
+.theater.open { opacity: 1; }
+.theater.hidden { display: none; }
+
+.theater-panel {
+  pointer-events: auto;
+  width: min(1200px, 96vw);
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  border-radius: 20px;
+  background:
+    radial-gradient(120% 80% at 50% -10%, rgba(227, 175, 50, 0.08), transparent 60%),
+    linear-gradient(180deg, #141319 0%, #0d0c12 100%);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  box-shadow: 0 40px 120px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  padding: 18px 22px 14px;
+  transform: translateY(0);
+  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.theater.hidden .theater-panel { transform: translateY(-14px); }
+
+/* minimized: dock as a compact pill bottom-right; page un-dims */
+.theater.theater-minimized { align-items: flex-end; justify-content: flex-end; padding: 0 18px 18px; }
+.theater.theater-minimized .theater-panel { width: 320px; padding: 12px 16px; }
+.theater.theater-minimized .theater-stage,
+.theater.theater-minimized .theater-caption { display: none; }
+body.theater-dim:has(.theater-minimized) > *:not(#pipelineTheater) { filter: none; }
+
+/* ── header (fixed row) ────────────────────────────────────────────────── */
+
+.theater-head {
+  flex: 0 0 auto;
+  display: flex; align-items: center; justify-content: space-between;
+  height: 28px; margin-bottom: 16px;
+}
+.theater-title {
+  font-family: var(--font-head, 'Montserrat', sans-serif);
+  font-size: 12px; font-weight: 800; letter-spacing: 0.16em; text-transform: uppercase;
+  color: #f4f1ea;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.theater-title::before {
+  content: ''; display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+  background: var(--gold, #e3af32); margin-right: 9px; vertical-align: middle;
+  box-shadow: 0 0 10px rgba(227, 175, 50, 0.8);
+  animation: pt-live 1.8s ease-in-out infinite;
+}
+@keyframes pt-live { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+.theater-min {
+  flex: 0 0 auto; margin-left: 12px;
+  background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #cfcbe0; width: 28px; height: 28px; border-radius: 9px; cursor: pointer;
+  line-height: 1; font-size: 14px;
+}
+.theater-min:hover { background: rgba(255, 255, 255, 0.12); }
+
+/* ── metro stage strip (fixed-height reserved row) ─────────────────────── */
+
+.theater-metro {
+  flex: 0 0 auto;
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  height: 46px;
+  padding: 4px 10px 0;
+  margin-bottom: 16px;
+}
+.theater-metro::before {
+  content: '';
+  position: absolute;
+  left: 24px; right: 24px; top: 15px;
+  height: 2px;
+  background: linear-gradient(90deg, rgba(255,255,255,0.06), rgba(255,255,255,0.14), rgba(255,255,255,0.06));
+  border-radius: 1px;
+}
+.metro-stop {
+  position: relative;
+  display: flex; flex-direction: column; align-items: center; gap: 7px;
+  min-width: 0; flex: 1;
+}
+.metro-dot {
+  position: relative;
+  width: 22px; height: 22px; border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.24);
+  background: #14131a;
+  display: flex; align-items: center; justify-content: center;
+  transition: border-color 0.25s ease, background 0.25s ease, box-shadow 0.25s ease;
+}
+.metro-check {
+  font-size: 11px; font-weight: 900; color: #0d0c12;
+  opacity: 0; transform: scale(0.4);
+  transition: opacity 0.2s ease, transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.metro-label {
+  font-size: 10.5px; font-weight: 600; letter-spacing: 0.05em;
+  color: #7f7a90; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
+}
+.metro-badge {
+  position: absolute; top: -7px; right: calc(50% - 26px);
+  font-size: 9px; font-weight: 800; color: #fff;
+  background: var(--red, #c8102e); border-radius: 8px; padding: 1px 5px;
+}
+.metro-badge.hidden { display: none; }
+
+.metro-stop[data-state='active'] .metro-dot {
+  border-color: var(--gold, #e3af32);
+  box-shadow: 0 0 0 4px rgba(227, 175, 50, 0.16);
+  animation: metro-pulse 1.6s ease-in-out infinite;
+}
+.metro-stop[data-state='active'] .metro-label { color: #e8e4d6; }
+.metro-stop[data-state='done'] .metro-dot {
+  border-color: var(--green, #35b57c); background: var(--green, #35b57c);
+}
+.metro-stop[data-state='done'] .metro-check { opacity: 1; transform: scale(1); }
+.metro-stop[data-state='done'] .metro-label { color: #8fd6b3; }
+.metro-stop[data-state='rework'] .metro-dot {
+  border-color: var(--red, #c8102e);
+  box-shadow: 0 0 0 4px rgba(200, 16, 46, 0.24);
+  animation: metro-shake 0.4s ease;
+}
+.metro-dot.pop { animation: metro-pop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1); }
+
+.metro-loopdot {
+  position: absolute; top: 0; left: 0;
+  width: 9px; height: 9px; border-radius: 50%;
+  background: var(--red, #c8102e); box-shadow: 0 0 10px rgba(200, 16, 46, 0.9);
+  pointer-events: none; z-index: 4;
+}
+
+@keyframes metro-pulse {
+  0%, 100% { box-shadow: 0 0 0 4px rgba(227, 175, 50, 0.16); }
+  50% { box-shadow: 0 0 0 8px rgba(227, 175, 50, 0.06); }
+}
+@keyframes metro-pop { 0% { transform: scale(0.7); } 60% { transform: scale(1.25); } 100% { transform: scale(1); } }
+@keyframes metro-shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-3px); } 75% { transform: translateX(3px); }
+}
+
+/* ── the pipeline graph (stage columns + orthogonal SVG rails) ─────────── */
+
+/* the stage is the scroll viewport; below the graph's intrinsic width it
+   scrolls horizontally rather than squashing the columns */
+.theater-stage {
+  flex: 1 1 auto;
+  position: relative;
+  min-height: 0;
+  margin-bottom: 12px;
+  overflow-x: auto;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(227,175,50,0.4) transparent;
+}
+.theater-stage::-webkit-scrollbar { height: 8px; width: 8px; }
+.theater-stage::-webkit-scrollbar-thumb { background: rgba(227,175,50,0.35); border-radius: 4px; }
+.theater-stage::-webkit-scrollbar-track { background: transparent; }
+
+/* inner canvas holds both the rail layer and the columns. It fills the stage
+   width but never collapses below the graph's minimum (6 tracks + gutters):
+   below that the stage scrolls horizontally instead of squashing columns. */
+.theater-canvas {
+  position: relative;
+  width: 100%;
+  min-width: min-content;
+}
+.theater-rails {
+  position: absolute; top: 0; left: 0;
+  pointer-events: none; z-index: 1; overflow: visible;
+}
+.pt-rail {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.11);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.theater-graph {
+  position: relative; z-index: 2;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(var(--pt-col), 1fr);
+  gap: var(--pt-gutter);
+  align-items: start;
+  padding: 2px 2px 6px;
+}
+
+.stage-col { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.stage-col-head { display: flex; align-items: center; gap: 8px; padding-left: 2px; height: 18px; }
+.stage-col-idx {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 18px; height: 18px; border-radius: 6px;
+  font-size: 10px; font-weight: 800;
+  color: #0d0c12; background: rgba(227, 175, 50, 0.85);
+}
+.stage-col-name {
+  font-family: var(--font-head, 'Montserrat', sans-serif);
+  font-size: 11px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase;
+  color: #b8b3c4;
+}
+/* single-column body: one uniform node per row, consistent 8px rhythm */
+.stage-col-body { display: flex; flex-direction: column; gap: var(--pt-row-gap); }
+
+/* ── nodes (uniform box; sub/gate lighter but same footprint) ──────────── */
+
+.pt-node {
+  position: relative;
+  box-sizing: border-box;
+  display: flex; align-items: center; gap: 10px;
+  height: var(--pt-node-h);
+  padding: 0 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.028);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  transition: border-color 0.25s ease, background 0.25s ease, transform 0.2s ease, box-shadow 0.25s ease;
+}
+
+/* slim connector sub-agents (overseer, refiner, stage-qa, tagger, edit-learn,
+   terminology): visually lighter (dimmer fill, dashed border) but the SAME
+   box size so the grid stays even and nothing is cramped */
+.pt-node-sub {
+  background: rgba(255, 255, 255, 0.014);
+  border-style: dashed;
+  border-color: rgba(255, 255, 255, 0.10);
+}
+.pt-node-sub .pt-label { color: #948fa4; }
+.pt-node-sub .pt-orb { background: rgba(255, 255, 255, 0.035); }
+
+/* zero-text gate: distinct gate styling */
+.pt-node-gate { border-color: rgba(227, 175, 50, 0.28); }
+.pt-node-gate .pt-orb { background: rgba(227, 175, 50, 0.10); }
+
+/* on-demand / path-dependent nodes: dimmed AT REST (data-state='idle') so the
+   viz reads honestly — they only run on a specific path — with a title tooltip
+   explaining when. The dimming is scoped to the idle state, so the node lights
+   fully (active/passed/rework colours untouched) the moment it DOES fire. */
+.pt-node.pt-on-demand[data-state='idle'] { opacity: 0.5; }
+.pt-node.pt-on-demand[data-state='idle'] .pt-label { color: #6f6a80; }
+.pt-node.pt-on-demand[data-state='idle'] .pt-orb { background: rgba(255, 255, 255, 0.02); }
+
+.pt-orb {
+  position: relative; flex: 0 0 auto;
+  width: 30px; height: 30px; border-radius: 50%;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden;
+  transition: background 0.25s ease, border-color 0.25s ease, box-shadow 0.3s ease;
+}
+.pt-glyph {
+  font-family: var(--font-head, 'Montserrat', sans-serif);
+  font-size: 13px; font-weight: 800; color: #cfcbe0; line-height: 1;
+  transition: opacity 0.2s ease;
+}
+.pt-check {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 15px; font-weight: 900; color: #0d0c12;
+  opacity: 0; transform: scale(0.4);
+  transition: opacity 0.2s ease, transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.pt-meta { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1 1 auto; }
+.pt-label {
+  font-size: 12px; font-weight: 700; color: #ddd9e8;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.pt-sub {
+  font-size: 9.5px; color: #7f7a90; min-height: 11px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+.pt-status {
+  position: absolute; top: 8px; right: 9px;
+  width: 6px; height: 6px; border-radius: 50%;
+  background: #4a4756; color: var(--gold, #e3af32);
+  transition: background 0.25s ease, box-shadow 0.25s ease;
+}
+.pt-node[data-state='passed'] .pt-status { color: var(--green, #35b57c); }
+.pt-node[data-state='rework'] .pt-status { color: var(--red, #c8102e); }
+.pt-badge {
+  position: absolute; top: -6px; right: -6px;
+  font-size: 9px; font-weight: 800; color: #fff;
+  background: var(--red, #c8102e); border-radius: 8px; padding: 1px 5px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+.pt-badge.hidden { display: none; }
+
+/* iteration chip (×2, ×3…) — a re-run counter on the node's lower-left */
+.pt-iter {
+  position: absolute; bottom: -6px; left: -5px;
+  font-size: 9px; font-weight: 800; color: #16130a;
+  background: var(--gold, #e3af32); border-radius: 8px; padding: 1px 5px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+.pt-iter.hidden { display: none; }
+
+/* echo — a short-lived outline pulse when an agent runs again */
+.pt-node.pt-echo::after {
+  content: ''; position: absolute; inset: -2px; border-radius: 14px;
+  border: 1.5px solid rgba(227, 175, 50, 0.75);
+  pointer-events: none;
+  animation: pt-echo 0.7s ease-out forwards;
+}
+@keyframes pt-echo {
+  0% { transform: scale(1); opacity: 0.85; }
+  100% { transform: scale(1.08); opacity: 0; }
+}
+
+/* ── node states ───────────────────────────────────────────────────────── */
+
+/* active: gold ring, breathing glow, status dot lit, rising bubbles */
+.pt-node[data-state='active'] {
+  border-color: rgba(227, 175, 50, 0.5);
+  border-style: solid;
+  background: rgba(227, 175, 50, 0.06);
+  box-shadow: 0 0 0 1px rgba(227, 175, 50, 0.18), 0 6px 22px rgba(227, 175, 50, 0.08);
+  transform: translateY(-1px);
+}
+.pt-node[data-state='active'] .pt-orb {
+  background: rgba(227, 175, 50, 0.16);
+  border-color: rgba(227, 175, 50, 0.6);
+  animation: pt-breathe 2.2s ease-in-out infinite;
+}
+.pt-node[data-state='active'] .pt-status {
+  background: var(--gold, #e3af32);
+  box-shadow: 0 0 8px rgba(227, 175, 50, 0.9);
+}
+.pt-node[data-state='active'] .pt-bubbles { opacity: 1; }
+
+/* passed: green fill, glyph fades to a check */
+.pt-node[data-state='passed'] .pt-orb {
+  background: var(--green, #35b57c);
+  border-color: var(--green, #35b57c);
+}
+.pt-node[data-state='passed'] .pt-glyph { opacity: 0; }
+.pt-node[data-state='passed'] .pt-check { opacity: 1; transform: scale(1); }
+.pt-node[data-state='passed'] .pt-status { background: var(--green, #35b57c); box-shadow: 0 0 6px rgba(53, 181, 124, 0.7); }
+.pt-node[data-state='passed'] .pt-label { color: #a9dcc4; }
+
+/* best-effort: amber accept */
+.pt-node[data-state='best-effort'] .pt-orb {
+  background: var(--amber, #e2a13d); border-color: var(--amber, #e2a13d);
+}
+.pt-node[data-state='best-effort'] .pt-glyph { opacity: 0; }
+.pt-node[data-state='best-effort'] .pt-check { opacity: 1; transform: scale(1); color: #16130a; }
+.pt-node[data-state='best-effort'] .pt-status { background: var(--amber, #e2a13d); }
+
+/* rework: red ring + status */
+.pt-node[data-state='rework'] {
+  border-color: rgba(200, 16, 46, 0.5);
+  border-style: solid;
+}
+.pt-node[data-state='rework'] .pt-orb {
+  background: rgba(200, 16, 46, 0.14); border-color: rgba(200, 16, 46, 0.6);
+}
+.pt-node[data-state='rework'] .pt-status { background: var(--red, #c8102e); box-shadow: 0 0 8px rgba(200, 16, 46, 0.8); }
+
+/* flashes + ping */
+.pt-node.pt-flash-green { animation: pt-flash-g 0.85s ease; }
+.pt-node.pt-flash-red { animation: pt-flash-r 0.85s ease; }
+.pt-node.pt-flash-amber { animation: pt-flash-a 0.85s ease; }
+.pt-node.pt-ping { animation: pt-ping 0.45s ease; }
+
+@keyframes pt-breathe {
+  0%, 100% { box-shadow: 0 0 10px rgba(227, 175, 50, 0.55); }
+  50% { box-shadow: 0 0 20px rgba(227, 175, 50, 0.28); }
+}
+@keyframes pt-flash-g {
+  0% { border-color: rgba(53, 181, 124, 0.95); background: rgba(53, 181, 124, 0.16); }
+  100% { }
+}
+@keyframes pt-flash-r {
+  0% { border-color: rgba(200, 16, 46, 0.95); background: rgba(200, 16, 46, 0.16); }
+  100% { }
+}
+@keyframes pt-flash-a {
+  0% { border-color: rgba(226, 161, 61, 0.95); background: rgba(226, 161, 61, 0.16); }
+  100% { }
+}
+@keyframes pt-ping { 0% { transform: scale(1); } 40% { transform: scale(1.05); } 100% { transform: scale(1); } }
+
+/* ── rising bubbles (brewery touch, in the active orb) ─────────────────── */
+
+.pt-bubbles {
+  position: absolute; inset: 0; opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+}
+.pt-bubble {
+  position: absolute; bottom: 3px;
+  width: 3px; height: 3px; border-radius: 50%;
+  background: rgba(255, 244, 214, 0.85);
+}
+.pt-bubble:nth-child(1) { left: 30%; }
+.pt-bubble:nth-child(2) { left: 52%; }
+.pt-bubble:nth-child(3) { left: 68%; }
+.pt-node[data-state='active'] .pt-bubble { animation: pt-rise 2s ease-in infinite; }
+.pt-node[data-state='active'] .pt-bubble:nth-child(2) { animation-delay: 0.6s; }
+.pt-node[data-state='active'] .pt-bubble:nth-child(3) { animation-delay: 1.2s; }
+.pt-orb.pt-boil .pt-bubble { animation: pt-rise 2s ease-in infinite; }
+
+@keyframes pt-rise {
+  0% { transform: translateY(0) scale(0.6); opacity: 0; }
+  25% { opacity: 0.9; }
+  100% { transform: translateY(-22px) scale(1); opacity: 0; }
+}
+
+/* ── data packets (labelled pill + comet trail, ride the rails) ────────── */
+
+.pt-packet {
+  position: absolute; top: 0; left: 0;
+  display: inline-flex; align-items: center; gap: 5px;
+  height: 18px; padding: 0 8px 0 6px;
+  border-radius: 10px;
+  pointer-events: none; z-index: 6;
+  white-space: nowrap;
+}
+.pt-packet::before {
+  content: ''; flex: 0 0 auto;
+  width: 8px; height: 8px; border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 8px currentColor;
+}
+.pt-packet-tag {
+  font-size: 9.5px; font-weight: 800; letter-spacing: 0.02em;
+  line-height: 1; color: #0d0c12;
+}
+/* comet trail streaming behind the pill */
+.pt-packet-trail {
+  position: absolute; top: 50%; right: 100%;
+  width: 30px; height: 3px; transform: translateY(-50%);
+  border-radius: 3px;
+  background: linear-gradient(90deg, transparent, currentColor);
+  opacity: 0.55;
+}
+.pt-packet-green {
+  color: var(--green, #35b57c);
+  background: linear-gradient(180deg, #63d29d, var(--green, #35b57c));
+  box-shadow: 0 0 14px rgba(53, 181, 124, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+.pt-packet-red {
+  color: var(--red, #c8102e);
+  background: linear-gradient(180deg, #e2586d, var(--red, #c8102e));
+  box-shadow: 0 0 14px rgba(200, 16, 46, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+.pt-packet-red .pt-packet-tag { color: #fff; }
+
+/* "received" ring — expands out of the receiving node's orb on arrival */
+.pt-recv-ring {
+  position: absolute; inset: 0; border-radius: 50%;
+  border: 2px solid var(--gold, #e3af32);
+  pointer-events: none;
+  animation: pt-recv 0.6s ease-out forwards;
+}
+@keyframes pt-recv {
+  0% { transform: scale(0.7); opacity: 0.9; }
+  100% { transform: scale(2.1); opacity: 0; }
+}
+.pt-status.pt-status-blip { animation: pt-blip 0.5s ease; }
+@keyframes pt-blip {
+  0% { transform: scale(1); }
+  40% { transform: scale(2.1); box-shadow: 0 0 10px currentColor; }
+  100% { transform: scale(1); }
+}
+
+/* ── caption (fixed-height reserved row) ───────────────────────────────── */
+
+.theater-caption {
+  flex: 0 0 auto;
+  font-size: 12.5px; font-weight: 600;
+  color: #b7b2c4;
+  text-align: center;
+  padding: 6px 8px 10px;
+  height: 34px; box-sizing: border-box;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.theater-caption[data-tone='good'] { color: #7fdcaa; }
+.theater-caption[data-tone='bad'] { color: #ff8b8f; }
+.theater-caption[data-tone='warn'] { color: #ecc271; }
+
+/* ── beer-pour indeterminate progress bar (fixed row) ──────────────────── */
+
+.theater-pour {
+  flex: 0 0 auto;
+  position: relative;
+  height: 6px; border-radius: 4px; overflow: hidden;
+  background: rgba(255, 255, 255, 0.05);
+}
+.theater-pour-fill {
+  position: absolute; top: 0; bottom: 0; width: 42%;
+  border-radius: 4px;
+  background: linear-gradient(90deg, rgba(227, 175, 50, 0) 0%, rgba(227, 175, 50, 0.55) 30%, var(--gold, #e3af32) 70%, #f0c65a 100%);
+  animation: pt-pour 1.9s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+.theater-pour-foam {
+  position: absolute; top: 0; bottom: 0; width: 8px;
+  border-radius: 4px;
+  background: rgba(255, 250, 235, 0.92);
+  box-shadow: 0 0 8px rgba(255, 250, 235, 0.6);
+  animation: pt-foam 1.9s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+@keyframes pt-pour {
+  0% { left: -42%; } 100% { left: 100%; }
+}
+@keyframes pt-foam {
+  0% { left: calc(-42% + 40px); opacity: 0.4; }
+  30% { opacity: 1; }
+  100% { left: calc(100% + 40px); opacity: 0.4; }
+}
+
+/* ── minimized pill: show a compact live line ──────────────────────────── */
+.theater.theater-minimized .theater-metro {
+  height: auto; margin-bottom: 0; padding: 2px 4px;
+}
+.theater.theater-minimized .metro-label { display: none; }
+.theater.theater-minimized .theater-pour { margin-top: 8px; }
+
+/* ── prefers-reduced-motion: keep state colours, drop travel/pulse ─────── */
+
+@media (prefers-reduced-motion: reduce) {
+  .theater, .theater-panel, .pt-node, .pt-orb, .metro-dot { transition: none; }
+  .theater-title::before,
+  .metro-stop[data-state='active'] .metro-dot,
+  .pt-node[data-state='active'] .pt-orb,
+  .pt-node[data-state='active'] .pt-bubble,
+  .pt-orb.pt-boil .pt-bubble,
+  .theater-pour-fill, .theater-pour-foam,
+  .metro-dot.pop,
+  .pt-recv-ring, .pt-status.pt-status-blip, .pt-node.pt-echo::after,
+  .pt-node.pt-flash-green, .pt-node.pt-flash-red, .pt-node.pt-flash-amber, .pt-node.pt-ping { animation: none; }
+  .pt-recv-ring, .pt-node.pt-echo::after { display: none; }
+  .pt-node[data-state='active'] .pt-bubbles { opacity: 0; }
+  body.theater-dim > *:not(#pipelineTheater) { transition: none; }
+  /* keep the pour bar visible as a static gold segment */
+  .theater-pour-fill { left: 30%; }
+}

@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Usage &amp; Cost — Poster Studio</title>
+<link rel="stylesheet" href="css/base.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="index.html">Poster<span>Studio</span></a>
+  <nav aria-label="Primary">
+    <a href="index.html">Create</a>
+    <a href="pipeline.html">Ops</a>
+    <a href="library.html">Library</a>
+    <a href="backgrounds.html">Backgrounds</a>
+    <a href="usage.html" class="active" aria-current="page">Usage</a>
+    <a href="config.html">Config</a>
+  </nav>
+</header>
+
+<main class="page usage-page">
+  <div id="authBanner" class="banner hidden">
+    <strong>Not authorized.</strong> This app uses a per-install session token: open the
+    tokenized URL printed at server startup (<code>http://127.0.0.1:4180/?token=…</code>)
+    once in this browser — it sets the session cookie, then reload this page.
+  </div>
+
+  <h1>Token usage &amp; cost</h1>
+  <p class="hint">Every model call in the pipeline is metered. Pick a poster to see how many
+  tokens each stage consumed, which model tier ran it, and the estimated cost per step.</p>
+
+  <section class="usage-panel-page usage-overview" id="usageOverview">
+    <h2 class="usage-section-title">All posters</h2>
+    <table class="usage-ov-table" aria-label="Token usage per poster">
+      <thead>
+        <tr><th>Poster</th><th>Calls</th><th>In</th><th>Out</th><th>Total</th><th>Est. cost</th></tr>
+      </thead>
+      <tbody id="usageOverviewBody"></tbody>
+    </table>
+    <p class="usage-hint hidden" id="usageOverviewEmpty">No metered posters yet.</p>
+  </section>
+
+  <div class="usage-toolbar">
+    <label class="usage-picker">
+      <span class="usage-picker-label">Poster</span>
+      <select id="usagePosterSelect" aria-label="Select a poster to view its token usage"></select>
+    </label>
+    <button id="usageRefreshBtn" type="button" class="usage-refresh-btn ic ic-refresh" aria-label="Refresh token usage">Refresh</button>
+  </div>
+
+  <section class="usage-panel-page" id="usagePanelPage">
+    <div class="usage-cards" id="usageCards" aria-label="Token usage summary">
+      <div class="usage-card">
+        <span class="usage-card-value" id="usageCardTotal">0</span>
+        <span class="usage-card-label">Total tokens</span>
+      </div>
+      <div class="usage-card">
+        <span class="usage-card-value" id="usageCardIn">0</span>
+        <span class="usage-card-label">Input</span>
+      </div>
+      <div class="usage-card">
+        <span class="usage-card-value" id="usageCardOut">0</span>
+        <span class="usage-card-label">Output</span>
+      </div>
+      <div class="usage-card">
+        <span class="usage-card-value" id="usageCardCalls">0</span>
+        <span class="usage-card-label">Model calls</span>
+      </div>
+      <div class="usage-card usage-card-cost">
+        <span class="usage-card-value" id="usageCardCost">$0.00</span>
+        <span class="usage-card-label">Est. cost</span>
+      </div>
+    </div>
+
+    <h2 class="usage-section-title">Cost per stage</h2>
+    <div class="usage-stages" id="usageStages" aria-label="Token usage by stage"></div>
+    <p class="usage-hint hidden" id="usageEmpty">No token data for this poster yet — run the pipeline to see cost per stage.</p>
+    <p class="usage-foot">Cost is an estimate from published per-model token rates — not a bill.</p>
+  </section>
+
+  <p class="usage-hint hidden" id="usageNoPosters">No posters yet. <a href="index.html">Create one</a> to start metering usage.</p>
+</main>
+
+<script src="js/auth.js"></script>
+<script src="js/usage_page.js"></script>
+</body>
+</html>
