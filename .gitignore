@@ -8,6 +8,7 @@ data/*.sqlite-wal
 data/session-token
 
 # secrets / local
+data/secrets.json
 .env
 .env.*
 *.log
