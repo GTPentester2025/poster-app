@@ -52,8 +52,9 @@ export const DEFAULT_PROVIDER_CONFIG = {
  * The CUSTOM provider (OpenAI-compatible endpoints: Ollama / OpenRouter /
  * LiteLLM / vLLM / Groq / …) uses arbitrary key formats — no `sk-` prefix and
  * often shorter tokens — so it only checks non-empty + no-whitespace + a small
- * minimum. A keyless custom endpoint (local Ollama) is set by clearing the key
- * (handled in setSecrets), never by passing a blank one here.
+ * minimum. A keyless custom endpoint (local Ollama) is used by leaving the
+ * session key blank (no x-provider-key header sent), never by passing a blank
+ * one here.
  * Returns null when valid, else a human reason.
  */
 export function validateApiKey(provider, key) {
