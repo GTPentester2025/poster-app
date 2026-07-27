@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { EventBus } from '#shared';
 import { GateEngine, Harness } from '#orchestration';
 import { openDb } from './db.js';
+import { seedIfAbsent } from './seed-db.js';
 import { Vault, defaultSecretsPath } from '../masking/vault.js';
 import { MaskingEgress } from '../masking/egress.js';
 
@@ -18,7 +19,12 @@ export function createAppContext({
   transports = {},
   egress: egressOverride = null // tests inject a fake egress here (no SDK/vault touch)
 } = {}) {
-  const db = openDb(dbPath || join(dataDir, 'poster-app.sqlite'));
+  const runtimePath = dbPath || join(dataDir, 'poster-app.sqlite');
+  // Fresh checkout/deploy: copy the committed read-only seed into place so the
+  // shipped poster library is present on first run. No-op if a runtime DB
+  // already exists (existing data preserved) or no seed is present (tests).
+  seedIfAbsent(runtimePath, join(dataDir, 'poster-seed.sqlite'));
+  const db = openDb(runtimePath);
   const bus = new EventBus({ logDir, db });
   const vault = new Vault({ db, secretsPath: defaultSecretsPath(dataDir) });
   const egress = egressOverride || new MaskingEgress({ vault, bus, db, transports });

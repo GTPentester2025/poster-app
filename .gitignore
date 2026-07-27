@@ -1,8 +1,12 @@
 node_modules/
 
-# Transient / secret only. The poster library DB (data/poster-app.sqlite) and the
-# image database (image-library/assets/) ARE tracked — they hold pre-generated
-# posters and images that must persist across clones/deploys.
+# The RUNTIME DB (data/poster-app.sqlite) is git-ignored: the app writes to it
+# constantly, so tracking it makes every `git pull` conflict on a locally-
+# modified binary. The shipped poster library ships instead as a read-only SEED
+# (data/poster-seed.sqlite, tracked) that the app never writes and copies into
+# place on first run. Image assets (image-library/assets/) stay tracked — new
+# files, never conflicting. Run `npm run reseed` to refresh runtime from seed.
+data/poster-app.sqlite
 data/*.sqlite-shm
 data/*.sqlite-wal
 data/session-token
