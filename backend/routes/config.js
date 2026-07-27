@@ -64,10 +64,12 @@ export function configRouter({ vault, egress }) {
   // Probe the selected CONTENT model with one tiny chat call so the config page
   // can show the real endpoint error before a full run. Always 200; the body's
   // `ok` conveys success (mirrors egress.testContentModel's structured result).
-  router.post('/test', async (_req, res, next) => {
+  router.post('/test', async (_req, res) => {
     try {
       res.json(await egress.testContentModel());
-    } catch (err) { next(err); }
+    } catch (err) {
+      res.json({ ok: false, code: err.code || 'CALL_FAILED', message: (err.message || 'the probe failed').slice(0, 200) });
+    }
   });
 
   router.put('/', (req, res, next) => {

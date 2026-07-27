@@ -115,3 +115,15 @@ test('POST /api/config/test surfaces the egress probe result', async () => {
     assert.match(body.message, /max_tokens/);
   } finally { srv.close(); }
 });
+
+test('POST /api/config/test returns 200 with ok:false even when the probe throws', async () => {
+  const egress = { testContentModel: async () => { const e = new Error('boom'); e.code = 'CALL_FAILED'; throw e; } };
+  const { srv, base, token } = await startServer({ egress });
+  try {
+    const res = await fetch(`${base}/api/config/test`, { method: 'POST', headers: H(token) });
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.equal(body.ok, false);
+    assert.equal(body.code, 'CALL_FAILED');
+  } finally { srv.close(); }
+});
