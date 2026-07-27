@@ -36,8 +36,8 @@ export function configRouter({ vault, egress }) {
   // Provider selection (openai | custom OpenAI-compatible endpoint).
   router.put('/provider', (req, res, next) => {
     try {
-      const { provider, customBaseUrl, customModel } = req.body || {};
-      const providerConfig = vault.setProviderConfig({ provider, customBaseUrl, customModel });
+      const { provider, customBaseUrl, customModel, customModels } = req.body || {};
+      const providerConfig = vault.setProviderConfig({ provider, customBaseUrl, customModel, customModels });
       res.json({ providerConfig });
     } catch (err) {
       if (err.status === 400) return res.status(400).json({ error: err.code || 'PROVIDER_INVALID', message: err.message });
@@ -59,6 +59,15 @@ export function configRouter({ vault, egress }) {
       }
       next(err);
     }
+  });
+
+  // Probe the selected CONTENT model with one tiny chat call so the config page
+  // can show the real endpoint error before a full run. Always 200; the body's
+  // `ok` conveys success (mirrors egress.testContentModel's structured result).
+  router.post('/test', async (_req, res, next) => {
+    try {
+      res.json(await egress.testContentModel());
+    } catch (err) { next(err); }
   });
 
   router.put('/', (req, res, next) => {

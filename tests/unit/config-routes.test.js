@@ -27,26 +27,30 @@ test('GET /api/config exposes provider config + provider list, defaulting to ope
   try {
     const res = await fetch(`${base}/api/config`, { headers: H(token) });
     const body = await res.json();
-    assert.deepEqual(body.providerConfig, { provider: 'openai', customBaseUrl: '', customModel: '' });
+    assert.deepEqual(body.providerConfig, { provider: 'openai', customBaseUrl: '', customModels: { content: '', vision: '', image: '' } });
     assert.deepEqual(body.providers, ['openai', 'custom']);
     assert.equal(body.secrets.customConfigured, false);
   } finally { srv.close(); }
 });
 
-test('PUT /api/config/provider persists a custom selection and round-trips via GET', async () => {
+test('PUT /api/config/provider persists a custom per-role selection and round-trips via GET', async () => {
   const { srv, base, token } = await startServer();
   try {
     const put = await fetch(`${base}/api/config/provider`, {
       method: 'PUT', headers: H(token),
-      body: JSON.stringify({ provider: 'custom', customBaseUrl: 'http://localhost:11434/v1', customModel: 'llama3.1' })
+      body: JSON.stringify({ provider: 'custom', customBaseUrl: 'http://localhost:11434/v1',
+        customModels: { content: 'llama3.1', image: 'sdxl' } })
     });
     assert.equal(put.status, 200);
     const { providerConfig } = await put.json();
-    assert.deepEqual(providerConfig, { provider: 'custom', customBaseUrl: 'http://localhost:11434/v1', customModel: 'llama3.1' });
+    assert.equal(providerConfig.provider, 'custom');
+    assert.equal(providerConfig.customModels.content, 'llama3.1');
+    assert.equal(providerConfig.customModels.image, 'sdxl');
     const get = await (await fetch(`${base}/api/config`, { headers: H(token) })).json();
-    assert.equal(get.providerConfig.provider, 'custom');
-    // custom model bypasses the allow-list and flows to models resolution
+    // content flows to model resolution; unset vision falls back to content
     assert.equal(get.models.content, 'llama3.1');
+    assert.equal(get.models.vision, 'llama3.1');
+    assert.equal(get.models.image, 'sdxl');
   } finally { srv.close(); }
 });
 
@@ -96,5 +100,18 @@ test('GET /api/config/models/live maps endpoint failure to 502', async () => {
     const res = await fetch(`${base}/api/config/models/live`, { headers: H(token) });
     assert.equal(res.status, 502);
     assert.equal((await res.json()).error, 'MODELS_FETCH_FAILED');
+  } finally { srv.close(); }
+});
+
+test('POST /api/config/test surfaces the egress probe result', async () => {
+  const egress = { testContentModel: async () => ({ ok: false, code: 'CALL_FAILED', status: 400, message: 'Unsupported parameter: max_tokens' }) };
+  const { srv, base, token } = await startServer({ egress });
+  try {
+    const res = await fetch(`${base}/api/config/test`, { method: 'POST', headers: H(token) });
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.equal(body.ok, false);
+    assert.equal(body.status, 400);
+    assert.match(body.message, /max_tokens/);
   } finally { srv.close(); }
 });
