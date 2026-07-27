@@ -15,10 +15,26 @@
 
   window.SESSION_TOKEN = token;
 
+  // AI provider key: session-only (tab-scoped), NEVER localStorage, NEVER sent
+  // to the server for storage — only attached per request as x-provider-key.
+  window.getProviderKey = function () {
+    try { return sessionStorage.getItem('poster_provider_key') || ''; } catch { return ''; }
+  };
+  window.setProviderKey = function (v) {
+    try {
+      if (v) sessionStorage.setItem('poster_provider_key', v);
+      else sessionStorage.removeItem('poster_provider_key');
+    } catch { /* private mode */ }
+  };
+
   // Merge the auth header into a fetch options object (or create one).
   window.authOptions = function (options) {
     var opts = Object.assign({}, options || {});
-    if (token) opts.headers = Object.assign({}, opts.headers || {}, { 'x-session-token': token });
+    var headers = Object.assign({}, opts.headers || {});
+    if (token) headers['x-session-token'] = token;
+    var pk = window.getProviderKey();
+    if (pk) headers['x-provider-key'] = pk;
+    opts.headers = headers;
     return opts;
   };
 })();

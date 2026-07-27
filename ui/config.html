@@ -79,10 +79,7 @@
     <div id="customFields" hidden>
       <div class="grid2">
         <label>Base URL <input id="customBaseUrl" placeholder="http://localhost:11434/v1"></label>
-        <label>Custom API key <span class="chip" id="customChip">not configured</span>
-          <input id="customKey" type="password" autocomplete="off" placeholder="paste key (blank keeps current)"></label>
       </div>
-      <label class="check"><input type="checkbox" id="customKeyless"> Keyless endpoint (clear the stored key — e.g. local Ollama)</label>
       <div class="row">
         <button id="loadModels" type="button">Load models</button>
         <button id="testConn" type="button">Test connection</button>
@@ -99,16 +96,19 @@
     <span id="providerStatus" class="status" role="status" aria-live="polite"></span>
   </section>
 
-  <section class="card" id="openaiKeyCard">
-    <h2>OpenAI API key</h2>
-    <p class="hint">Single provider: one OpenAI key powers content, the vision zero-text gate, and image
-    generation. Write-only — stored server-side, never displayed again, never logged.</p>
+  <section class="card">
+    <h2>AI provider API key (this session only)</h2>
+    <p class="hint">Held in this browser tab only and sent with each request — <strong>never stored on the server</strong>.
+    Re-enter it after reopening the app. Leave blank for a keyless endpoint (e.g. local Ollama).</p>
     <div class="grid2">
-      <label>OpenAI API key <span class="chip" id="openaiChip">not configured</span>
-        <input id="openaiKey" type="password" autocomplete="off" placeholder="sk-…"></label>
+      <label>API key <span class="chip" id="providerKeyChip">not set</span>
+        <input id="providerKey" type="password" autocomplete="off" placeholder="paste key (kept in this tab only)"></label>
     </div>
-    <button id="saveKeys" class="primary">Save key</button>
-    <span id="keysStatus" class="status" role="status" aria-live="polite"></span>
+    <div class="row">
+      <button id="setProviderKey" class="primary">Set key (this session)</button>
+      <button id="clearProviderKey">Clear</button>
+    </div>
+    <span id="providerKeyStatus" class="status" role="status" aria-live="polite"></span>
   </section>
 
   <section class="card" id="modelsCard">

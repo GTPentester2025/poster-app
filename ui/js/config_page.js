@@ -1,4 +1,4 @@
-// Config page logic: load/save org config, brand override, write-only API keys.
+// Config page logic: load/save org config, brand override, session-only provider key.
 // Every network call is wrapped: an unreachable server surfaces as a status
 // message, never a silent unhandled rejection.
 
@@ -67,12 +67,11 @@ function fillSelect(id, options, current) {
   }
 }
 
-/** Show/hide provider-specific UI: custom fields vs the OpenAI key + models cards. */
+/** Show/hide provider-specific UI: custom fields vs the models card. */
 function applyProviderUi(provider) {
   const isCustom = provider === 'custom';
   $('customFields').hidden = !isCustom;
-  // The OpenAI key + per-role model cards only apply to the OpenAI provider.
-  $('openaiKeyCard').hidden = isCustom;
+  // The per-role model card only applies to the OpenAI provider.
   $('modelsCard').hidden = isCustom;
 }
 
@@ -118,9 +117,9 @@ async function persistCustomModels() {
 }
 
 async function load() {
-  let orgConfig, secrets, models, modelOptions, providerConfig;
+  let orgConfig, models, modelOptions, providerConfig;
   try {
-    ({ orgConfig, secrets, models, modelOptions, providerConfig } = await api('/api/config'));
+    ({ orgConfig, models, modelOptions, providerConfig } = await api('/api/config'));
   } catch (err) {
     flash($('orgStatus'), `Cannot load config (${err.message}) — is the server running and this tab authorized?`, false);
     return;
@@ -132,8 +131,6 @@ async function load() {
     renderRoleSelects(window._lastLoadedModels || []);
     applyProviderUi(providerConfig.provider);
   }
-  $('customChip').textContent = secrets.customConfigured ? 'configured ✓' : 'not configured';
-  $('customChip').classList.toggle('on', secrets.customConfigured);
   for (const f of ORG_FIELDS) $(f).value = orgConfig[f] || '';
   $('orgDomains').value = (orgConfig.orgDomains || []).join(', ');
   $('customSensitiveTerms').value = (orgConfig.customSensitiveTerms || []).join(', ');
@@ -146,13 +143,12 @@ async function load() {
     $('brandFontHead').value = b.fontHead || '';
     $('brandFontBody').value = b.fontBody || '';
   }
-  $('openaiChip').textContent = secrets.openaiConfigured ? 'configured ✓' : 'not configured';
-  $('openaiChip').classList.toggle('on', secrets.openaiConfigured);
   if (models && modelOptions) {
     fillSelect('modelContent', modelOptions.content, models.content);
     fillSelect('modelVision', modelOptions.vision, models.vision);
     fillSelect('modelImage', modelOptions.image, models.image);
   }
+  updateProviderKeyChip();
 }
 
 function putJson(path, body) {
@@ -200,29 +196,11 @@ $('clearBrand').addEventListener('click', async () => {
   }
 });
 
-$('saveKeys').addEventListener('click', async () => {
-  const openaiKey = $('openaiKey').value.trim();
-  if (!openaiKey) { flash($('keysStatus'), 'Nothing to save', false); return; }
-  try {
-    const { secrets } = await putJson('/api/config/secrets', { openaiKey });
-    $('openaiKey').value = '';
-    await load();
-    // report the ACTUAL resulting state so a misfiled save can't look successful
-    flash($('keysStatus'), secrets.openaiConfigured
-      ? 'OpenAI key configured ✓'
-      : 'Stored — but OpenAI still NOT configured. Paste the key and save again.', secrets.openaiConfigured);
-  } catch (err) {
-    flash($('keysStatus'), `Save failed: ${err.message}`, false);
-  }
-});
-
 $('providerSelect').addEventListener('change', () => applyProviderUi($('providerSelect').value));
 
 /**
- * Persist the provider config and, for custom, the key: a non-empty key is
- * saved; a ticked "keyless" box clears the stored key; an empty box with the
- * box unticked leaves the current key untouched. Returns after both writes so
- * a subsequent live-models fetch targets the just-saved endpoint.
+ * Persist the provider config (provider, customBaseUrl, customModels).
+ * The API key is now session-only in the browser — never stored on the server.
  */
 async function persistProvider() {
   const provider = $('providerSelect').value;
@@ -236,20 +214,11 @@ async function persistProvider() {
     };
   }
   await putJson('/api/config/provider', body);
-  if (provider === 'custom') {
-    if ($('customKeyless').checked) {
-      await putJson('/api/config/secrets', { customKey: '' });
-    } else if ($('customKey').value.trim()) {
-      await putJson('/api/config/secrets', { customKey: $('customKey').value.trim() });
-    }
-  }
 }
 
 $('saveProvider').addEventListener('click', async () => {
   try {
     await persistProvider();
-    $('customKey').value = '';
-    $('customKeyless').checked = false;
     await load();
     flash($('providerStatus'), 'Provider saved.');
   } catch (err) {
@@ -276,8 +245,6 @@ $('loadModels').addEventListener('click', async () => {
   try {
     flash($('loadModelsStatus'), 'Saving provider & loading models…');
     await persistProvider();
-    $('customKey').value = '';
-    $('customKeyless').checked = false;
     const { models } = await api('/api/config/models/live');
     window._lastLoadedModels = models || [];
     renderRoleSelects(window._lastLoadedModels);
@@ -314,6 +281,28 @@ $('saveModels').addEventListener('click', async () => {
   } catch (err) {
     flash($('modelsStatus'), `Save failed: ${err.message}`, false);
   }
+});
+
+function updateProviderKeyChip() {
+  const set = !!window.getProviderKey();
+  const chip = $('providerKeyChip');
+  chip.textContent = set ? 'set for this session ✓' : 'not set';
+  chip.classList.toggle('on', set);
+}
+
+$('setProviderKey').addEventListener('click', () => {
+  const v = $('providerKey').value.trim();
+  window.setProviderKey(v);
+  $('providerKey').value = '';
+  updateProviderKeyChip();
+  flash($('providerKeyStatus'), v ? 'Key set for this session.' : 'Key cleared.');
+});
+
+$('clearProviderKey').addEventListener('click', () => {
+  window.setProviderKey('');
+  $('providerKey').value = '';
+  updateProviderKeyChip();
+  flash($('providerKeyStatus'), 'Key cleared.');
 });
 
 load();
