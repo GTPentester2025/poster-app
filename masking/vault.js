@@ -33,7 +33,11 @@ export const DEFAULT_MODEL_SELECTION = { content: 'gpt-4o', vision: 'gpt-4o', im
 // override + a single free-form model id (no allow-list — the endpoint decides
 // what it serves). See masking/provider-url.js for base-URL normalization.
 export const PROVIDERS = ['openai', 'custom'];
-export const DEFAULT_PROVIDER_CONFIG = { provider: 'openai', customBaseUrl: '', customModel: '' };
+export const DEFAULT_PROVIDER_CONFIG = {
+  provider: 'openai',
+  customBaseUrl: '',
+  customModels: { content: '', vision: '', image: '' }
+};
 
 /**
  * Shape-validate an API key BEFORE it is stored. This is the guard that stops
@@ -107,14 +111,21 @@ export class Vault {
 
   // ---- provider selection (openai | custom OpenAI-compatible endpoint) ----
 
-  /** Current provider config: { provider, customBaseUrl, customModel }. */
+  /** Current provider config: { provider, customBaseUrl, customModels:{content,vision,image} }. */
   getProviderConfig() {
     const row = this._get.get('providerConfig');
     const stored = row ? JSON.parse(row.value) : {};
+    const provider = PROVIDERS.includes(stored.provider) ? stored.provider : DEFAULT_PROVIDER_CONFIG.provider;
+    const customBaseUrl = typeof stored.customBaseUrl === 'string' ? stored.customBaseUrl : '';
+    // Migration: a legacy single `customModel` seeds all three roles so an
+    // existing custom setup keeps working after the per-role split.
+    const legacy = typeof stored.customModel === 'string' ? stored.customModel : '';
+    const cm = (stored.customModels && typeof stored.customModels === 'object') ? stored.customModels : {};
+    const pick = (role) => (typeof cm[role] === 'string' && cm[role]) ? cm[role] : legacy;
     return {
-      provider: PROVIDERS.includes(stored.provider) ? stored.provider : DEFAULT_PROVIDER_CONFIG.provider,
-      customBaseUrl: typeof stored.customBaseUrl === 'string' ? stored.customBaseUrl : '',
-      customModel: typeof stored.customModel === 'string' ? stored.customModel : ''
+      provider,
+      customBaseUrl,
+      customModels: { content: pick('content'), vision: pick('vision'), image: pick('image') }
     };
   }
 
@@ -127,6 +138,7 @@ export class Vault {
    */
   setProviderConfig(partial) {
     const next = { ...this.getProviderConfig() };
+    next.customModels = { ...next.customModels };
     if (partial && 'provider' in partial) {
       if (!PROVIDERS.includes(partial.provider)) {
         const err = new Error(`"${partial.provider}" is not a valid provider (choose one of: ${PROVIDERS.join(', ')})`);
@@ -137,8 +149,17 @@ export class Vault {
       next.provider = partial.provider;
     }
     if (partial && typeof partial.customBaseUrl === 'string') next.customBaseUrl = partial.customBaseUrl.trim();
-    if (partial && typeof partial.customModel === 'string') next.customModel = partial.customModel.trim();
-    this._set.run('providerConfig', JSON.stringify(next), new Date().toISOString());
+    // Legacy alias: a flat customModel string writes the content role.
+    if (partial && typeof partial.customModel === 'string') next.customModels.content = partial.customModel.trim();
+    if (partial && partial.customModels && typeof partial.customModels === 'object') {
+      for (const role of MODEL_ROLES) {
+        if (typeof partial.customModels[role] === 'string') next.customModels[role] = partial.customModels[role].trim();
+      }
+    }
+    // Persist WITHOUT the legacy flat key so reads use the per-role shape.
+    this._set.run('providerConfig', JSON.stringify({
+      provider: next.provider, customBaseUrl: next.customBaseUrl, customModels: next.customModels
+    }), new Date().toISOString());
     return next;
   }
 
@@ -153,8 +174,13 @@ export class Vault {
   getModels() {
     const pc = this.getProviderConfig();
     if (pc.provider === 'custom') {
-      const m = pc.customModel || '';
-      return { content: m, vision: m, image: m };
+      const cm = pc.customModels || {};
+      const content = cm.content || '';
+      return {
+        content,
+        vision: cm.vision || content,
+        image: cm.image || content
+      };
     }
     const row = this._get.get('models');
     const stored = row ? JSON.parse(row.value) : {};

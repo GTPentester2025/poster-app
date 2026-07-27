@@ -125,16 +125,44 @@ function freshVault() {
   return new Vault({ db: new Database(':memory:'), secretsPath: join(dir, 'secrets.json') });
 }
 
-test('provider config defaults to openai and round-trips custom selection', () => {
+test('provider config defaults to openai and round-trips custom per-role selection', () => {
   const vault = freshVault();
   assert.deepEqual(vault.getProviderConfig(), DEFAULT_PROVIDER_CONFIG);
-  const next = vault.setProviderConfig({ provider: 'custom', customBaseUrl: '  http://localhost:11434/v1  ', customModel: '  llama3.1  ' });
-  assert.deepEqual(next, { provider: 'custom', customBaseUrl: 'http://localhost:11434/v1', customModel: 'llama3.1' });
+  const next = vault.setProviderConfig({
+    provider: 'custom',
+    customBaseUrl: '  http://localhost:11434/v1  ',
+    customModels: { content: '  llama3.1  ', vision: ' llava ', image: ' sdxl ' }
+  });
+  assert.deepEqual(next, {
+    provider: 'custom',
+    customBaseUrl: 'http://localhost:11434/v1',
+    customModels: { content: 'llama3.1', vision: 'llava', image: 'sdxl' }
+  });
   assert.deepEqual(vault.getProviderConfig(), next);
-  // partial update keeps the untouched fields
+  // partial update keeps untouched fields
   const back = vault.setProviderConfig({ provider: 'openai' });
   assert.equal(back.provider, 'openai');
   assert.equal(back.customBaseUrl, 'http://localhost:11434/v1');
+  assert.equal(back.customModels.content, 'llama3.1');
+});
+
+test('legacy customModel input aliases to customModels.content and mirrors unset roles', () => {
+  const vault = freshVault();
+  vault.setProviderConfig({ provider: 'custom', customModel: 'my-org/mixtral-8x7b' });
+  // vision/image unset -> fall back to content in getModels
+  assert.deepEqual(vault.getModels(), {
+    content: 'my-org/mixtral-8x7b', vision: 'my-org/mixtral-8x7b', image: 'my-org/mixtral-8x7b'
+  });
+});
+
+test('getModels resolves per-role under custom, falling back to content for empty roles', () => {
+  const vault = freshVault();
+  vault.setProviderConfig({ provider: 'custom', customModels: { content: 'llama3.1', image: 'sdxl' } });
+  assert.deepEqual(vault.getModels(), { content: 'llama3.1', vision: 'llama3.1', image: 'sdxl' });
+  // switching back to openai restores allow-list + prior per-role storage
+  vault.setModels({ content: 'gpt-4o-mini' });
+  vault.setProviderConfig({ provider: 'openai' });
+  assert.equal(vault.getModels().content, 'gpt-4o-mini');
 });
 
 test('setProviderConfig rejects an unknown provider with 400 PROVIDER_INVALID', () => {
@@ -144,16 +172,6 @@ test('setProviderConfig rejects an unknown provider with 400 PROVIDER_INVALID', 
     (err) => err.code === 'PROVIDER_INVALID' && err.status === 400
   );
   assert.equal(vault.getProviderConfig().provider, 'openai', 'rejected provider must not persist');
-});
-
-test('getModels bypasses the allow-list under the custom provider (free-form model for every role)', () => {
-  const vault = freshVault();
-  vault.setProviderConfig({ provider: 'custom', customModel: 'my-org/mixtral-8x7b' });
-  assert.deepEqual(vault.getModels(), { content: 'my-org/mixtral-8x7b', vision: 'my-org/mixtral-8x7b', image: 'my-org/mixtral-8x7b' });
-  // switching back to openai restores allow-list behaviour + prior per-role storage
-  vault.setModels({ content: 'gpt-4o-mini' });
-  vault.setProviderConfig({ provider: 'openai' });
-  assert.equal(vault.getModels().content, 'gpt-4o-mini');
 });
 
 test('validateApiKey accepts non-sk custom keys but still rejects prose/whitespace/too-short', () => {
