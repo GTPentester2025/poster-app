@@ -12,6 +12,7 @@ import { withRetry } from '#shared';
 import { buildMaskMap, redact, restore, assertNoLeaks } from './redactor.js';
 import { normalizeChatCompletionsBase, resolveModelsUrl, parseModelsList } from './provider-url.js';
 import { tryParseJson } from '#orchestration';
+import { currentKey } from './request-key.js';
 
 const OPENAI_DEFAULT_BASE = 'https://api.openai.com/v1';
 
@@ -67,7 +68,7 @@ export class MaskingEgress {
   _openaiClient() {
     if (this._openaiInjected) return this._openai;
     const pc = this._providerConfig();
-    const { openaiKey, customKey } = this.vault.getSecrets();
+    const key = currentKey();
     // The cached client is keyed by everything that determines its identity, so
     // a runtime provider/base-URL/key change (e.g. saved on the Config page)
     // rebuilds the client instead of silently reusing the old endpoint.
@@ -79,16 +80,16 @@ export class MaskingEgress {
         err.code = 'CUSTOM_URL_MISSING';
         throw err;
       }
-      sig = `custom|${pc.customBaseUrl}|${customKey}`;
-      build = () => new OpenAI({ apiKey: customKey || 'not-needed', baseURL: normalizeChatCompletionsBase(pc.customBaseUrl) });
+      sig = `custom|${pc.customBaseUrl}|${key}`;
+      build = () => new OpenAI({ apiKey: key || 'not-needed', baseURL: normalizeChatCompletionsBase(pc.customBaseUrl) });
     } else {
-      if (!openaiKey) {
-        const err = new Error('OpenAI API key not configured — set it on the Config page or OPENAI_API_KEY env var');
+      if (!key) {
+        const err = new Error('OpenAI API key not configured — set it on the Config page (this session)');
         err.code = 'NO_API_KEY';
         throw err;
       }
-      sig = `openai|${openaiKey}`;
-      build = () => new OpenAI({ apiKey: openaiKey });
+      sig = `openai|${key}`;
+      build = () => new OpenAI({ apiKey: key });
     }
     if (this._openai && this._openaiSig === sig) return this._openai;
     this._openai = build();
@@ -104,7 +105,7 @@ export class MaskingEgress {
    */
   async listModels() {
     const pc = this._providerConfig();
-    const { openaiKey, customKey } = this.vault.getSecrets();
+    const reqKey = currentKey();
     let base;
     let key;
     if (pc.provider === 'custom') {
@@ -115,12 +116,12 @@ export class MaskingEgress {
         throw err;
       }
       base = normalizeChatCompletionsBase(pc.customBaseUrl);
-      key = customKey;
+      key = reqKey;
     } else {
       base = OPENAI_DEFAULT_BASE;
-      key = openaiKey;
+      key = reqKey;
       if (!key) {
-        const err = new Error('OpenAI API key not configured — set it on the Config page or OPENAI_API_KEY env var');
+        const err = new Error('OpenAI API key not configured — set it on the Config page (this session)');
         err.code = 'NO_API_KEY';
         err.status = 400;
         throw err;

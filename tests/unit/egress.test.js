@@ -12,6 +12,7 @@ import { EventBus } from '#shared';
 import { Vault } from '../../masking/vault.js';
 import { MaskingEgress } from '../../masking/egress.js';
 import { migrate } from '../../backend/db.js';
+import { runWithKey } from '../../masking/request-key.js';
 
 const ORG = {
   companyName: 'AB InBev',
@@ -360,14 +361,13 @@ test('egress log: generateImage stores placeholder not base64', async () => {
 test('listModels (custom): fetches <base>/models with Bearer key and parses ids', async () => {
   const { vault, bus, db } = setup();
   vault.setProviderConfig({ provider: 'custom', customBaseUrl: 'localhost:11434', customModel: 'llama3.1' });
-  vault.setSecrets({ customKey: 'or-' + 'k'.repeat(20) });
   const calls = [];
   const fetch = async (url, opts) => {
     calls.push({ url, opts });
     return { ok: true, status: 200, json: async () => ({ data: [{ id: 'llama3.1' }, { id: 'mistral' }] }) };
   };
   const egress = new MaskingEgress({ vault, bus, db, transports: { fetch } });
-  const ids = await egress.listModels();
+  const ids = await runWithKey('or-' + 'k'.repeat(20), () => egress.listModels());
   assert.deepEqual(ids, ['llama3.1', 'mistral']);
   assert.equal(calls.length, 1);
   assert.equal(calls[0].url, 'http://localhost:11434/v1/models');
@@ -380,7 +380,7 @@ test('listModels (custom keyless): no Authorization header sent', async () => {
   const calls = [];
   const fetch = async (url, opts) => { calls.push({ url, opts }); return { ok: true, status: 200, json: async () => ['a'] }; };
   const egress = new MaskingEgress({ vault, bus, db, transports: { fetch } });
-  await egress.listModels();
+  await runWithKey('', () => egress.listModels());
   assert.equal('Authorization' in calls[0].opts.headers, false, 'keyless endpoint gets no Authorization header');
 });
 
@@ -389,9 +389,8 @@ test('listModels (openai): targets api.openai.com/v1/models, requires a key', as
   const calls = [];
   const fetch = async (url, opts) => { calls.push({ url, opts }); return { ok: true, status: 200, json: async () => ({ data: [{ id: 'gpt-4o' }] }) }; };
   const noKey = new MaskingEgress({ vault, bus, db, transports: { fetch } });
-  await assert.rejects(() => noKey.listModels(), (err) => err.code === 'NO_API_KEY');
-  vault.setSecrets({ openaiKey: 'sk-proj-' + 'a'.repeat(40) });
-  const ids = await noKey.listModels();
+  await assert.rejects(() => runWithKey('', () => noKey.listModels()), (err) => err.code === 'NO_API_KEY');
+  const ids = await runWithKey('sk-proj-' + 'a'.repeat(40), () => noKey.listModels());
   assert.deepEqual(ids, ['gpt-4o']);
   assert.equal(calls[0].url, 'https://api.openai.com/v1/models');
 });
@@ -427,19 +426,18 @@ test('_openaiClient (custom) builds an SDK client with the normalized baseURL', 
   assert.equal(String(client.baseURL).replace(/\/$/, ''), 'http://localhost:11434/v1');
 });
 
-test('_openaiClient rebuilds when the provider/endpoint changes at runtime', () => {
+test('_openaiClient rebuilds when the provider/endpoint changes at runtime', async () => {
   const { vault, bus, db } = setup();
-  vault.setSecrets({ openaiKey: 'sk-proj-' + 'a'.repeat(40) });
   const egress = new MaskingEgress({ vault, bus, db });
-  const first = egress._openaiClient(); // openai
-  assert.equal(egress._openaiClient(), first, 'same config → cached client reused');
+  const first = await runWithKey('sk-proj-' + 'a'.repeat(40), () => egress._openaiClient()); // openai
+  assert.equal(await runWithKey('sk-proj-' + 'a'.repeat(40), () => egress._openaiClient()), first, 'same config → cached client reused');
   vault.setProviderConfig({ provider: 'custom', customBaseUrl: 'localhost:11434', customModel: 'x' });
-  const second = egress._openaiClient(); // switched → rebuilt
+  const second = await runWithKey('', () => egress._openaiClient()); // switched → rebuilt
   assert.notEqual(second, first, 'provider switch must rebuild the client');
   assert.equal(String(second.baseURL).replace(/\/$/, ''), 'http://localhost:11434/v1');
   // base-URL change also rebuilds
   vault.setProviderConfig({ customBaseUrl: 'http://localhost:9999/v1' });
-  const third = egress._openaiClient();
+  const third = await runWithKey('', () => egress._openaiClient());
   assert.notEqual(third, second);
   assert.equal(String(third.baseURL).replace(/\/$/, ''), 'http://localhost:9999/v1');
 });
@@ -447,7 +445,6 @@ test('_openaiClient rebuilds when the provider/endpoint changes at runtime', () 
 test('testContentModel returns ok with a sample on a working endpoint', async () => {
   const { egress, vault } = setup({ responseText: 'pong' });
   vault.setProviderConfig({ provider: 'custom', customBaseUrl: 'http://localhost:11434/v1', customModels: { content: 'llama3.1' } });
-  vault.setSecrets({ customKey: 'or-' + 'a'.repeat(20) });
   const r = await egress.testContentModel();
   assert.equal(r.ok, true);
   assert.equal(r.model, 'llama3.1');
@@ -462,7 +459,6 @@ test('testContentModel returns a structured error (never throws) when the call f
   const openai = { chat: { completions: { create: async () => { const e = new Error('Unsupported parameter: max_tokens'); e.status = 400; throw e; } } } };
   const egress = new MaskingEgress({ vault, bus, db, transports: { openai } });
   vault.setProviderConfig({ provider: 'custom', customBaseUrl: 'http://localhost:11434/v1', customModels: { content: 'llama3.1' } });
-  vault.setSecrets({ customKey: 'or-' + 'a'.repeat(20) });
   const r = await egress.testContentModel();
   assert.equal(r.ok, false);
   assert.equal(r.status, 400);
@@ -473,7 +469,6 @@ test('testContentModel returns a structured error (never throws) when the call f
 test('testContentModel reports CUSTOM_MODEL_MISSING when content is unset', async () => {
   const { egress, vault } = setup();
   vault.setProviderConfig({ provider: 'custom', customBaseUrl: 'http://localhost:11434/v1' }); // no models
-  vault.setSecrets({ customKey: 'or-' + 'a'.repeat(20) });
   const r = await egress.testContentModel();
   assert.equal(r.ok, false);
   assert.equal(r.code, 'CUSTOM_MODEL_MISSING');
