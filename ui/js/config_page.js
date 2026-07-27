@@ -232,6 +232,25 @@ $('loadModels').addEventListener('click', async () => {
   }
 });
 
+// Auto-persist the picked model. "Load models" only fills the datalist; a model
+// chosen there isn't stored until "Save provider" is clicked, and a skipped click
+// left customModel empty — surfacing later as CUSTOM_MODEL_MISSING at generate.
+// Saving on `change` (fires on datalist pick / blur) closes that gap. Direct PUT
+// (not persistProvider) so a mere model pick never touches the stored key.
+$('customModel').addEventListener('change', async () => {
+  if ($('providerSelect').value !== 'custom') return;
+  const customModel = $('customModel').value.trim();
+  if (!customModel) return;
+  try {
+    await putJson('/api/config/provider', {
+      provider: 'custom', customBaseUrl: $('customBaseUrl').value.trim(), customModel
+    });
+    flash($('loadModelsStatus'), `Model "${customModel}" saved.`);
+  } catch (err) {
+    flash($('loadModelsStatus'), `Could not save model: ${err.message}`, false);
+  }
+});
+
 $('saveModels').addEventListener('click', async () => {
   const body = {
     content: $('modelContent').value,
