@@ -466,6 +466,7 @@ test('testContentModel returns a structured error (never throws) when the call f
   const r = await egress.testContentModel();
   assert.equal(r.ok, false);
   assert.equal(r.status, 400);
+  assert.equal(r.code, 'CALL_FAILED');
   assert.match(r.message, /max_tokens/);
 });
 

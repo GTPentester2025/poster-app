@@ -131,10 +131,13 @@ export class Vault {
 
   /**
    * Update provider selection. `provider` must be one of PROVIDERS (rejects
-   * typos that would silently route calls nowhere). customBaseUrl/customModel
-   * are stored verbatim (trimmed); base-URL well-formedness is enforced at the
-   * egress boundary (provider-url.js) where it's actually used. Returns the
-   * full effective config.
+   * typos that would silently route calls nowhere). customBaseUrl and the
+   * per-role `customModels` map are stored verbatim (trimmed). A legacy flat
+   * `customModel` string is accepted only as an alias that writes the content
+   * role; it is never persisted as a flat key. The stored record always has
+   * the shape `{ provider, customBaseUrl, customModels }`. Base-URL
+   * well-formedness is enforced at the egress boundary (provider-url.js)
+   * where it is actually used. Returns the full effective config.
    */
   setProviderConfig(partial) {
     const next = { ...this.getProviderConfig() };
