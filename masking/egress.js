@@ -150,6 +150,39 @@ export class MaskingEgress {
   }
 
   /**
+   * One minimal chat.completions call with the selected CONTENT model, used by
+   * the Config page's "Test connection" button. Never throws: config problems
+   * and endpoint failures both come back as a structured result so the UI can
+   * show the REAL reason (HTTP status + short body) before a full generate run.
+   * SECURITY: returns only the error message text (already key-free from the
+   * SDK) — never the key, never org values.
+   */
+  async testContentModel() {
+    let client;
+    let model;
+    try {
+      client = this._openaiClient();
+      model = this._model('content');
+    } catch (err) {
+      return { ok: false, code: err.code || 'CONFIG', message: (err.message || 'not configured').slice(0, 200) };
+    }
+    try {
+      const res = await client.chat.completions.create({
+        model, max_tokens: 8, temperature: 0,
+        messages: [{ role: 'user', content: 'ping' }]
+      });
+      return { ok: true, model, sample: (res?.choices?.[0]?.message?.content || '').slice(0, 120) };
+    } catch (err) {
+      return {
+        ok: false,
+        code: err.code || 'CALL_FAILED',
+        status: err.status ?? null,
+        message: (err.message || 'the endpoint call failed').slice(0, 200)
+      };
+    }
+  }
+
+  /**
    * Begin a masking session: ONE org-config snapshot and ONE mask map shared
    * by every prompt part of a call, so outbound masking and inbound restore
    * are guaranteed to use identical state (no TOCTOU between system/user).

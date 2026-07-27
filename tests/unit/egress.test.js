@@ -443,3 +443,37 @@ test('_openaiClient rebuilds when the provider/endpoint changes at runtime', () 
   assert.notEqual(third, second);
   assert.equal(String(third.baseURL).replace(/\/$/, ''), 'http://localhost:9999/v1');
 });
+
+test('testContentModel returns ok with a sample on a working endpoint', async () => {
+  const { egress, vault } = setup({ responseText: 'pong' });
+  vault.setProviderConfig({ provider: 'custom', customBaseUrl: 'http://localhost:11434/v1', customModels: { content: 'llama3.1' } });
+  vault.setSecrets({ customKey: 'or-' + 'a'.repeat(20) });
+  const r = await egress.testContentModel();
+  assert.equal(r.ok, true);
+  assert.equal(r.model, 'llama3.1');
+  assert.equal(r.sample, 'pong');
+});
+
+test('testContentModel returns a structured error (never throws) when the call fails', async () => {
+  const db = new Database(':memory:'); migrate(db);
+  const dir = mkdtempSync(join(tmpdir(), 'postter-egress-test-'));
+  const vault = new Vault({ db, secretsPath: join(dir, 'secrets.json') });
+  const bus = new EventBus({ logDir: dir, db });
+  const openai = { chat: { completions: { create: async () => { const e = new Error('Unsupported parameter: max_tokens'); e.status = 400; throw e; } } } };
+  const egress = new MaskingEgress({ vault, bus, db, transports: { openai } });
+  vault.setProviderConfig({ provider: 'custom', customBaseUrl: 'http://localhost:11434/v1', customModels: { content: 'llama3.1' } });
+  vault.setSecrets({ customKey: 'or-' + 'a'.repeat(20) });
+  const r = await egress.testContentModel();
+  assert.equal(r.ok, false);
+  assert.equal(r.status, 400);
+  assert.match(r.message, /max_tokens/);
+});
+
+test('testContentModel reports CUSTOM_MODEL_MISSING when content is unset', async () => {
+  const { egress, vault } = setup();
+  vault.setProviderConfig({ provider: 'custom', customBaseUrl: 'http://localhost:11434/v1' }); // no models
+  vault.setSecrets({ customKey: 'or-' + 'a'.repeat(20) });
+  const r = await egress.testContentModel();
+  assert.equal(r.ok, false);
+  assert.equal(r.code, 'CUSTOM_MODEL_MISSING');
+});
