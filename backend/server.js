@@ -17,6 +17,7 @@ import { imagesRouter } from './routes/images.js';
 import { editorRouter } from './routes/editor.js';
 import { translationRouter } from './routes/translation.js';
 import { loadOrCreateToken, sessionAuth, tokenCookieSetter } from './auth.js';
+import { runWithKey } from '../masking/request-key.js';
 import { egressLogRouter } from './routes/egress_log.js';
 import { usageRouter } from './routes/usage.js';
 
@@ -28,6 +29,9 @@ const PORT = Number(process.env.POSTER_APP_PORT || 4180);
 export function createServer(ctx = createAppContext(), { dataDir = join(HERE, '..', 'data'), imageAssetsDir = undefined } = {}) {
   const app = express();
   app.use(express.json({ limit: '25mb' }));
+  // The AI provider key travels per request in x-provider-key (browser
+  // sessionStorage) and is used request-scoped only — never persisted.
+  app.use((req, _res, next) => runWithKey(req.get('x-provider-key') || '', next));
 
   const token = loadOrCreateToken(dataDir);
   app.use(tokenCookieSetter(token));

@@ -3,8 +3,9 @@
 // locally and are used to VERIFY nothing real leaves — they are never sent to
 // any model and never serialized anywhere except the config page API.
 //
-// API keys live here too (data/secrets, not the DB) — never logged, never
-// returned to the client after being set (only a boolean "configured" flag).
+// API keys are NOT stored here. Provider keys travel per request in the
+// x-provider-key header (browser sessionStorage) and are captured into
+// request scope via runWithKey() — they are never persisted anywhere.
 
 
 export const ORG_CONFIG_FIELDS = [

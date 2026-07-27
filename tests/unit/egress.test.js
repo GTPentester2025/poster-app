@@ -29,7 +29,7 @@ function setup({ responseText = 'Answer mentioning {{ORG_NAME}} and {{SOC_EMAIL}
   const db = new Database(':memory:');
   migrate(db); // create egress_log table
   const dir = mkdtempSync(join(tmpdir(), 'postter-egress-'));
-  const vault = new Vault({ db, secretsPath: join(dir, 'secrets.json') });
+  const vault = new Vault({ db });
   vault.setOrgConfig(ORG);
   const bus = new EventBus({ logDir: dir, db });
 
@@ -61,7 +61,7 @@ function setup({ responseText = 'Answer mentioning {{ORG_NAME}} and {{SOC_EMAIL}
 function setupNullDb({ responseText = 'Answer mentioning {{ORG_NAME}} and {{SOC_EMAIL}}.' } = {}) {
   const db = new Database(':memory:');
   const dir = mkdtempSync(join(tmpdir(), 'postter-egress-nulldb-'));
-  const vault = new Vault({ db, secretsPath: join(dir, 'secrets.json') });
+  const vault = new Vault({ db });
   vault.setOrgConfig(ORG);
   const bus = new EventBus({ logDir: dir, db });
   const captured = { chat: [], image: [] };
@@ -218,7 +218,7 @@ test('egress log: completeJson invalid-then-valid produces 2 rows', async () => 
   const db = new Database(':memory:');
   migrate(db);
   const dir = mkdtempSync(join(tmpdir(), 'postter-egress-cj-'));
-  const vault = new Vault({ db, secretsPath: join(dir, 'secrets.json') });
+  const vault = new Vault({ db });
   vault.setOrgConfig(ORG);
   const bus = new EventBus({ logDir: dir, db });
   const captured = { chat: [] };
@@ -263,7 +263,7 @@ test('egress log: error path writes error status row and rethrows', async () => 
   const db = new Database(':memory:');
   migrate(db);
   const dir = mkdtempSync(join(tmpdir(), 'postter-egress-err-'));
-  const vault = new Vault({ db, secretsPath: join(dir, 'secrets.json') });
+  const vault = new Vault({ db });
   vault.setOrgConfig(ORG);
   const bus = new EventBus({ logDir: dir, db });
   const providerErr = new Error('rate_limit_exceeded');
@@ -445,7 +445,7 @@ test('testContentModel returns ok with a sample on a working endpoint', async ()
 test('testContentModel returns a structured error (never throws) when the call fails', async () => {
   const db = new Database(':memory:'); migrate(db);
   const dir = mkdtempSync(join(tmpdir(), 'postter-egress-test-'));
-  const vault = new Vault({ db, secretsPath: join(dir, 'secrets.json') });
+  const vault = new Vault({ db });
   const bus = new EventBus({ logDir: dir, db });
   const openai = { chat: { completions: { create: async () => { const e = new Error('Unsupported parameter: max_tokens'); e.status = 400; throw e; } } } };
   const egress = new MaskingEgress({ vault, bus, db, transports: { openai } });

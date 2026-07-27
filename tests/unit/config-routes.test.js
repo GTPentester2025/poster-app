@@ -1,5 +1,5 @@
 // Config API tests for the custom-provider surface: provider config in GET,
-// PUT /provider, customKey via PUT /secrets, and GET /models/live (egress).
+// PUT /provider, and GET /models/live (egress).
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -8,6 +8,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createServer } from '../../backend/server.js';
 import { createAppContext } from '../../backend/app-context.js';
+import { currentKey } from '../../masking/request-key.js';
 
 function startServer({ egress } = {}) {
   const dataDir = mkdtempSync(join(tmpdir(), 'postter-config-'));
@@ -29,7 +30,6 @@ test('GET /api/config exposes provider config + provider list, defaulting to ope
     const body = await res.json();
     assert.deepEqual(body.providerConfig, { provider: 'openai', customBaseUrl: '', customModels: { content: '', vision: '', image: '' } });
     assert.deepEqual(body.providers, ['openai', 'custom']);
-    assert.equal(body.secrets.customConfigured, false);
   } finally { srv.close(); }
 });
 
@@ -66,19 +66,6 @@ test('PUT /api/config/provider rejects an unknown provider with 400', async () =
   } finally { srv.close(); }
 });
 
-test('PUT /api/config/secrets accepts customKey and reports customConfigured', async () => {
-  const { srv, base, token } = await startServer();
-  try {
-    const res = await fetch(`${base}/api/config/secrets`, {
-      method: 'PUT', headers: H(token), body: JSON.stringify({ customKey: 'or-' + 'k'.repeat(20) })
-    });
-    assert.equal(res.status, 200);
-    const { secrets } = await res.json();
-    assert.equal(secrets.customConfigured, true);
-    // the key itself is never echoed
-    assert.ok(!JSON.stringify(secrets).match(/or-k/));
-  } finally { srv.close(); }
-});
 
 test('GET /api/config/models/live returns the model list from the egress', async () => {
   const fakeEgress = { listModels: async () => ['llama3.1', 'mistral'] };
@@ -125,5 +112,18 @@ test('POST /api/config/test returns 200 with ok:false even when the probe throws
     const body = await res.json();
     assert.equal(body.ok, false);
     assert.equal(body.code, 'CALL_FAILED');
+  } finally { srv.close(); }
+});
+
+test('x-provider-key header is visible to the egress via request scope', async () => {
+  const egress = { testContentModel: async () => ({ ok: true, model: 'm', sample: currentKey() }) };
+  const { srv, base, token } = await startServer({ egress });
+  try {
+    const res = await fetch(`${base}/api/config/test`, {
+      method: 'POST', headers: { ...H(token), 'x-provider-key': 'sk-req-123' }
+    });
+    const body = await res.json();
+    assert.equal(body.ok, true);
+    assert.equal(body.sample, 'sk-req-123', 'middleware put the header key into the request scope');
   } finally { srv.close(); }
 });

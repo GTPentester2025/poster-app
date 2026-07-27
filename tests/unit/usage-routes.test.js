@@ -38,7 +38,7 @@ function makeEgressWithUsage({ chatUsage = null, imageUsage = null } = {}) {
   const db = new Database(':memory:');
   migrate(db);
   const dir = mkdtempSync(join(tmpdir(), 'postter-usage-egress-'));
-  const vault = new Vault({ db, secretsPath: join(dir, 'secrets.json') });
+  const vault = new Vault({ db });
   vault.setOrgConfig(ORG_SIMPLE);
   const bus = new EventBus({ logDir: dir, db });
   const openai = {

@@ -37,7 +37,8 @@ test('API accepts X-Session-Token header', async () => {
     assert.equal(res.status, 200);
     const body = await res.json();
     assert.ok(body.orgConfig);
-    assert.ok(!JSON.stringify(body.secrets).match(/sk-/));
+    // secrets field removed — provider keys are request-scoped via x-provider-key, never stored
+    assert.equal(body.secrets, undefined);
   } finally { srv.close(); }
 });
 

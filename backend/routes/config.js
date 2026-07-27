@@ -1,6 +1,7 @@
-// Config page API (spec §B.12): org details in the vault, API keys as
-// write-only secrets, brand override. Org config IS returned to the config
-// page (the user edits it) but never to any model — that's the egress's job.
+// Config page API (spec §B.12): org details in the vault, brand override.
+// Org config IS returned to the config page (the user edits it) but never to
+// any model — that's the egress's job. The AI provider key travels per request
+// in x-provider-key (browser sessionStorage) and is never persisted here.
 // Handlers route errors to the global handler: no vault/SQLite internals in
 // response bodies.
 
@@ -14,7 +15,6 @@ export function configRouter({ vault, egress }) {
     try {
       res.json({
         orgConfig: vault.getOrgConfig(),
-        secrets: vault.secretStatus(),
         models: vault.getModels(),
         modelOptions: MODEL_OPTIONS,
         providerConfig: vault.getProviderConfig(),
@@ -77,21 +77,6 @@ export function configRouter({ vault, egress }) {
       const updated = vault.setOrgConfig(req.body || {});
       res.json({ orgConfig: updated });
     } catch (err) { next(err); }
-  });
-
-  router.put('/secrets', (req, res, next) => {
-    try {
-      const { anthropicKey, openaiKey, customKey } = req.body || {};
-      const status = vault.setSecrets({ anthropicKey, openaiKey, customKey });
-      res.json({ secrets: status });
-    } catch (err) {
-      // key-shape rejections are the user's to fix — return the specific
-      // reason (400) instead of a generic 500 with only an error code
-      if (err.status === 400) {
-        return res.status(400).json({ error: err.code || 'SECRET_INVALID', message: err.message });
-      }
-      next(err);
-    }
   });
 
   return router;

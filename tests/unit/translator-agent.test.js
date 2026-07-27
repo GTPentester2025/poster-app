@@ -475,7 +475,7 @@ test('S1: translateContent through the real MaskingEgress — placeholder locked
   const soc = 'soc@ab-inbev.com';
   const dbRaw = new Database(':memory:');
   const dir = mkdtempSync(join(tmpdir(), 'postter-translator-s1-'));
-  const vault = new Vault({ db: dbRaw, secretsPath: join(dir, 'secrets.json') });
+  const vault = new Vault({ db: dbRaw });
   vault.setOrgConfig({ socEmail: soc });
 
   // Scripted transport: a compliant model that copies sentinels verbatim.
