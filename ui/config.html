@@ -84,11 +84,14 @@
       </div>
       <label class="check"><input type="checkbox" id="customKeyless"> Keyless endpoint (clear the stored key — e.g. local Ollama)</label>
       <div class="row">
-        <label style="flex:1">Model
-          <input id="customModel" list="customModelList" placeholder="e.g. llama3.1 (or click Load models)">
-          <datalist id="customModelList"></datalist>
-        </label>
         <button id="loadModels" type="button">Load models</button>
+        <button id="testConn" type="button">Test connection</button>
+        <label class="check"><input type="checkbox" id="showAllModels"> Show all models in every role</label>
+      </div>
+      <div class="grid2">
+        <label>Content model (text) <select id="customContent"></select></label>
+        <label>Vision model (zero-text gate) <select id="customVision"></select></label>
+        <label>Image model (artwork) <select id="customImage"></select></label>
       </div>
       <span id="loadModelsStatus" class="status" role="status" aria-live="polite"></span>
     </div>
@@ -123,6 +126,6 @@
 </main>
 
 <script src="js/auth.js"></script>
-<script src="js/config_page.js"></script>
+<script type="module" src="js/config_page.js"></script>
 </body>
 </html>

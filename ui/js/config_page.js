@@ -2,6 +2,8 @@
 // Every network call is wrapped: an unreachable server surfaces as a status
 // message, never a silent unhandled rejection.
 
+import { classifyModel } from './model-capability-browser.js';
+
 const ORG_FIELDS = ['companyName', 'socEmail', 'trainingPortalUrl', 'contentPortalUrl', 'reportingUrl', 'itHelpdesk'];
 const $ = (id) => document.getElementById(id);
 
@@ -74,6 +76,47 @@ function applyProviderUi(provider) {
   $('modelsCard').hidden = isCustom;
 }
 
+const ROLE_SELECTS = { content: 'customContent', vision: 'customVision', image: 'customImage' };
+const ROLE_GROUP = { content: 'text', vision: 'text', image: 'image' };
+
+// Populate the three role selects from a model-id list. Each role is filtered
+// to its capability group (unless "Show all" is ticked); the currently-stored
+// value is preserved as a "(current)" option even if the endpoint didn't list it.
+function renderRoleSelects(models) {
+  const showAll = $('showAllModels').checked;
+  const cm = window._customModels || { content: '', vision: '', image: '' };
+  for (const role of Object.keys(ROLE_SELECTS)) {
+    const sel = $(ROLE_SELECTS[role]);
+    const current = cm[role] || '';
+    let ids = showAll ? models.slice() : models.filter((m) => classifyModel(m) === ROLE_GROUP[role]);
+    if (current && !ids.includes(current)) ids = [current, ...ids];
+    if (!ids.length && current) ids = [current];
+    sel.textContent = '';
+    // allow an explicit empty choice (falls back to content at resolve time)
+    const blank = document.createElement('option'); blank.value = ''; blank.textContent = '— none —'; sel.appendChild(blank);
+    for (const id of ids) {
+      const o = document.createElement('option');
+      o.value = id;
+      o.textContent = (id === current && !models.includes(current)) ? `${id} (current)` : id;
+      if (id === current) o.selected = true;
+      sel.appendChild(o);
+    }
+  }
+}
+
+// Persist provider + all three role models. Direct PUT (not touching the key).
+async function persistCustomModels() {
+  await putJson('/api/config/provider', {
+    provider: 'custom',
+    customBaseUrl: $('customBaseUrl').value.trim(),
+    customModels: {
+      content: $('customContent').value,
+      vision: $('customVision').value,
+      image: $('customImage').value
+    }
+  });
+}
+
 async function load() {
   let orgConfig, secrets, models, modelOptions, providerConfig;
   try {
@@ -85,7 +128,8 @@ async function load() {
   if (providerConfig) {
     $('providerSelect').value = providerConfig.provider;
     $('customBaseUrl').value = providerConfig.customBaseUrl || '';
-    $('customModel').value = providerConfig.customModel || '';
+    window._customModels = providerConfig.customModels || { content: '', vision: '', image: '' };
+    renderRoleSelects(window._lastLoadedModels || []);
     applyProviderUi(providerConfig.provider);
   }
   $('customChip').textContent = secrets.customConfigured ? 'configured ✓' : 'not configured';
@@ -185,7 +229,11 @@ async function persistProvider() {
   const body = { provider };
   if (provider === 'custom') {
     body.customBaseUrl = $('customBaseUrl').value.trim();
-    body.customModel = $('customModel').value.trim();
+    body.customModels = {
+      content: $('customContent').value,
+      vision: $('customVision').value,
+      image: $('customImage').value
+    };
   }
   await putJson('/api/config/provider', body);
   if (provider === 'custom') {
@@ -209,45 +257,48 @@ $('saveProvider').addEventListener('click', async () => {
   }
 });
 
+// Re-render groups when the filter toggle flips.
+$('showAllModels').addEventListener('change', () => renderRoleSelects(window._lastLoadedModels || []));
+
+// Auto-persist any role pick so a missed "Save provider" can't drop it.
+for (const id of Object.values(ROLE_SELECTS)) {
+  $(id).addEventListener('change', async () => {
+    if ($('providerSelect').value !== 'custom') return;
+    window._customModels = {
+      content: $('customContent').value, vision: $('customVision').value, image: $('customImage').value
+    };
+    try { await persistCustomModels(); flash($('loadModelsStatus'), 'Model selection saved.'); }
+    catch (err) { flash($('loadModelsStatus'), `Could not save: ${err.message}`, false); }
+  });
+}
+
 $('loadModels').addEventListener('click', async () => {
   try {
     flash($('loadModelsStatus'), 'Saving provider & loading models…');
-    // The live fetch reads the STORED provider config + key, so persist first.
     await persistProvider();
     $('customKey').value = '';
     $('customKeyless').checked = false;
     const { models } = await api('/api/config/models/live');
-    const dl = $('customModelList');
-    dl.textContent = '';
-    for (const m of models) {
-      const o = document.createElement('option');
-      o.value = m;
-      dl.appendChild(o);
-    }
+    window._lastLoadedModels = models || [];
+    renderRoleSelects(window._lastLoadedModels);
+    const nImg = window._lastLoadedModels.filter((m) => classifyModel(m) === 'image').length;
     flash($('loadModelsStatus'), models.length
-      ? `${models.length} model(s) loaded — pick one in the Model field.`
+      ? `${models.length} model(s): ${nImg} image, ${models.length - nImg} text — assigned by role.`
       : 'Endpoint returned no models.', models.length > 0);
   } catch (err) {
     flash($('loadModelsStatus'), `Could not load models: ${err.message}`, false);
   }
 });
 
-// Auto-persist the picked model. "Load models" only fills the datalist; a model
-// chosen there isn't stored until "Save provider" is clicked, and a skipped click
-// left customModel empty — surfacing later as CUSTOM_MODEL_MISSING at generate.
-// Saving on `change` (fires on datalist pick / blur) closes that gap. Direct PUT
-// (not persistProvider) so a mere model pick never touches the stored key.
-$('customModel').addEventListener('change', async () => {
-  if ($('providerSelect').value !== 'custom') return;
-  const customModel = $('customModel').value.trim();
-  if (!customModel) return;
+$('testConn').addEventListener('click', async () => {
   try {
-    await putJson('/api/config/provider', {
-      provider: 'custom', customBaseUrl: $('customBaseUrl').value.trim(), customModel
-    });
-    flash($('loadModelsStatus'), `Model "${customModel}" saved.`);
+    flash($('loadModelsStatus'), 'Testing content model…');
+    await persistCustomModels();
+    const r = await api('/api/config/test', { method: 'POST' });
+    if (r.ok) flash($('loadModelsStatus'), `Content model OK (${r.model}). Reply: "${r.sample}"`);
+    else flash($('loadModelsStatus'), `Test failed${r.status ? ` (HTTP ${r.status})` : ''}: ${r.message}`, false);
   } catch (err) {
-    flash($('loadModelsStatus'), `Could not save model: ${err.message}`, false);
+    flash($('loadModelsStatus'), `Test failed: ${err.message}`, false);
   }
 });
 
