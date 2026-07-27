@@ -7,7 +7,7 @@ import { EventBus } from '#shared';
 import { GateEngine, Harness } from '#orchestration';
 import { openDb } from './db.js';
 import { seedIfAbsent } from './seed-db.js';
-import { Vault, defaultSecretsPath } from '../masking/vault.js';
+import { Vault } from '../masking/vault.js';
 import { MaskingEgress } from '../masking/egress.js';
 
 const HERE = fileURLToPath(new URL('.', import.meta.url));
@@ -26,7 +26,7 @@ export function createAppContext({
   seedIfAbsent(runtimePath, join(dataDir, 'poster-seed.sqlite'));
   const db = openDb(runtimePath);
   const bus = new EventBus({ logDir, db });
-  const vault = new Vault({ db, secretsPath: defaultSecretsPath(dataDir) });
+  const vault = new Vault({ db });
   const egress = egressOverride || new MaskingEgress({ vault, bus, db, transports });
   const gateEngine = new GateEngine({ bus });
   const harness = new Harness({ bus, gateEngine });

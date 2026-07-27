@@ -6,8 +6,6 @@
 // API keys live here too (data/secrets, not the DB) — never logged, never
 // returned to the client after being set (only a boolean "configured" flag).
 
-import { readFileSync, writeFileSync, renameSync, existsSync, mkdirSync } from 'node:fs';
-import { join, dirname } from 'node:path';
 
 export const ORG_CONFIG_FIELDS = [
   'companyName', 'socEmail', 'trainingPortalUrl', 'contentPortalUrl',
@@ -71,9 +69,8 @@ export function validateApiKey(provider, key) {
 }
 
 export class Vault {
-  constructor({ db, secretsPath }) {
+  constructor({ db }) {
     this.db = db;
-    this.secretsPath = secretsPath;
     db.exec(`CREATE TABLE IF NOT EXISTS org_config (
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL,
@@ -216,88 +213,4 @@ export class Vault {
     return next;
   }
 
-  // ---- secrets (API keys) ----
-
-  _readSecrets() {
-    if (!existsSync(this.secretsPath)) return {};
-    try {
-      return JSON.parse(readFileSync(this.secretsPath, 'utf8'));
-    } catch {
-      // NEVER swallow corruption silently — a later setSecrets() would clobber
-      // whichever key the user didn't re-enter. Message names the file, never
-      // its contents.
-      const err = new Error(`Secrets file at ${this.secretsPath} is corrupted (invalid JSON). Delete it and re-enter API keys on the Config page.`);
-      err.code = 'SECRETS_CORRUPTED';
-      throw err;
-    }
-  }
-
-  /**
-   * Set API keys. Never logged; never echoed back. Atomic write (tmp+rename)
-   * so a crash mid-write can't corrupt existing keys. Note: mode 0o600 is a
-   * no-op on Windows (ACLs apply); the server binds 127.0.0.1 and the data
-   * dir is expected to be user-profile-scoped.
-   */
-  setSecrets({ anthropicKey, openaiKey, customKey } = {}) {
-    // Only non-empty provided keys are considered; each is shape-validated and
-    // the whole call is rejected atomically if any fails, so a bad paste never
-    // half-writes a "configured" secret that then errors on the first call.
-    const provided = [];
-    if (typeof anthropicKey === 'string' && anthropicKey.trim()) provided.push(['anthropic', 'anthropicKey', anthropicKey.trim()]);
-    if (typeof openaiKey === 'string' && openaiKey.trim()) provided.push(['openai', 'openaiKey', openaiKey.trim()]);
-    if (typeof customKey === 'string' && customKey.trim()) provided.push(['custom', 'customKey', customKey.trim()]);
-    // An explicit blank customKey CLEARS it — this is how a keyless custom
-    // endpoint (e.g. local Ollama, no Authorization header) is configured.
-    // Only custom supports keyless; blank anthropic/openai keys are ignored.
-    const clearCustomKey = typeof customKey === 'string' && !customKey.trim();
-    if (!provided.length && !clearCustomKey) {
-      const err = new Error('No API key provided.');
-      err.code = 'SECRET_INVALID';
-      err.status = 400;
-      throw err;
-    }
-    const invalid = provided
-      .map(([provider, , value]) => ({ provider, reason: validateApiKey(provider, value) }))
-      .filter((r) => r.reason);
-    if (invalid.length) {
-      const label = { anthropic: 'Anthropic', openai: 'OpenAI', custom: 'Custom' };
-      const err = new Error(invalid.map((r) => `${label[r.provider]} key ${r.reason}`).join('; '));
-      err.code = 'SECRET_INVALID';
-      err.status = 400;
-      err.fields = invalid.map((r) => r.provider);
-      throw err;
-    }
-    mkdirSync(dirname(this.secretsPath), { recursive: true });
-    const current = this._readSecrets();
-    for (const [, field, value] of provided) current[field] = value;
-    if (clearCustomKey) current.customKey = '';
-    const tmpPath = `${this.secretsPath}.tmp`;
-    writeFileSync(tmpPath, JSON.stringify(current), { mode: 0o600 });
-    renameSync(tmpPath, this.secretsPath);
-    return this.secretStatus();
-  }
-
-  /** Env vars win so ops can inject keys without touching disk. */
-  getSecrets() {
-    const disk = this._readSecrets();
-    return {
-      anthropicKey: process.env.ANTHROPIC_API_KEY || disk.anthropicKey || '',
-      openaiKey: process.env.OPENAI_API_KEY || disk.openaiKey || '',
-      customKey: process.env.CUSTOM_API_KEY || disk.customKey || ''
-    };
-  }
-
-  /** What the config UI is allowed to see: booleans only. */
-  secretStatus() {
-    const s = this.getSecrets();
-    return {
-      anthropicConfigured: Boolean(s.anthropicKey),
-      openaiConfigured: Boolean(s.openaiKey),
-      customConfigured: Boolean(s.customKey)
-    };
-  }
-}
-
-export function defaultSecretsPath(dataDir) {
-  return join(dataDir, 'secrets.json');
 }

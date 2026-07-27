@@ -178,15 +178,6 @@ test('heavyRedaction through egress: internal refs masked outbound, restored inb
   assert.ok(out.includes('AB InBev'));
 });
 
-test('vault never echoes secrets; status booleans only', () => {
-  const { vault } = setup();
-  vault.setSecrets({ anthropicKey: 'sk-ant-test1230000000000000', openaiKey: 'sk-oa-test4560000000000000' });
-  const status = vault.secretStatus();
-  assert.deepEqual(Object.keys(status).sort(), ['anthropicConfigured', 'customConfigured', 'openaiConfigured']);
-  assert.equal(status.anthropicConfigured, true);
-  assert.ok(!JSON.stringify(status).includes('sk-ant'));
-});
-
 // ── Egress call log tests (D3) ───────────────────────────────────────────────
 
 test('egress log: completeText writes one row with masked_prompt containing placeholders and zero real org values', async () => {

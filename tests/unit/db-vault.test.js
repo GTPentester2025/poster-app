@@ -1,10 +1,7 @@
-// Migration idempotency + secrets corruption integration tests.
+// Migration idempotency + vault integration tests.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import Database from 'better-sqlite3';
 import { migrate } from '../../backend/db.js';
 import { Vault, validateApiKey, DEFAULT_MODEL_SELECTION, MODEL_OPTIONS, DEFAULT_PROVIDER_CONFIG } from '../../masking/vault.js';
@@ -38,29 +35,6 @@ test('FTS index stays in sync through insert/update/delete triggers', () => {
   assert.equal(rows.length, 0);
 });
 
-test('corrupted secrets file throws SECRETS_CORRUPTED and never clobbers keys', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'postter-vault-'));
-  const secretsPath = join(dir, 'secrets.json');
-  const vault = new Vault({ db: new Database(':memory:'), secretsPath });
-  vault.setSecrets({ anthropicKey: 'sk-ant-first00000000000000000', openaiKey: 'sk-oa-first0000000000000000' });
-  writeFileSync(secretsPath, '{corrupted!!', 'utf8');
-  assert.throws(() => vault.secretStatus(), (err) => err.code === 'SECRETS_CORRUPTED');
-  // a write against a corrupt file must also refuse (no silent clobber of the other key).
-  // The key is valid-shaped so it clears validation and reaches the corrupt-file read.
-  assert.throws(() => vault.setSecrets({ anthropicKey: 'sk-ant-second0000000000000000' }), (err) => err.code === 'SECRETS_CORRUPTED');
-});
-
-test('env vars override disk secrets', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'postter-vault-env-'));
-  const vault = new Vault({ db: new Database(':memory:'), secretsPath: join(dir, 'secrets.json') });
-  process.env.ANTHROPIC_API_KEY = 'sk-ant-env';
-  try {
-    assert.equal(vault.getSecrets().anthropicKey, 'sk-ant-env');
-  } finally {
-    delete process.env.ANTHROPIC_API_KEY;
-  }
-});
-
 test('validateApiKey rejects prose, whitespace, short, and wrong-prefix keys; accepts real shapes', () => {
   const BANNER = 'This tab is not authorized — open the tokenized URL printed in the server terminal (use 127.0.0.1, not localhost) to set the session cookie, then reload this page. Saving is blocked until then.';
   // the exact bug: a pasted banner sentence must never validate
@@ -77,26 +51,8 @@ test('validateApiKey rejects prose, whitespace, short, and wrong-prefix keys; ac
   assert.equal(validateApiKey('anthropic', 'sk-' + 'x'.repeat(40)), null);
 });
 
-test('setSecrets rejects an invalid key atomically (nothing stored) with a 400 SECRET_INVALID', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'postter-vault-inv-'));
-  const secretsPath = join(dir, 'secrets.json');
-  const vault = new Vault({ db: new Database(':memory:'), secretsPath });
-  // one good, one prose → whole call rejected, neither stored
-  assert.throws(
-    () => vault.setSecrets({ anthropicKey: 'sk-ant-api03-' + 'a'.repeat(40), openaiKey: 'not a key' }),
-    (err) => err.code === 'SECRET_INVALID' && err.status === 400 && /OpenAI key/.test(err.message)
-  );
-  assert.deepEqual(vault.secretStatus(), { anthropicConfigured: false, openaiConfigured: false, customConfigured: false });
-  // empty call rejected too
-  assert.throws(() => vault.setSecrets({}), (err) => err.code === 'SECRET_INVALID');
-  // a fully valid pair stores
-  const status = vault.setSecrets({ anthropicKey: 'sk-ant-api03-' + 'a'.repeat(40), openaiKey: 'sk-proj-' + 'b'.repeat(40) });
-  assert.deepEqual(status, { anthropicConfigured: true, openaiConfigured: true, customConfigured: false });
-});
-
 test('getModels returns defaults until set; setModels validates against the allow-list', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'postter-vault-models-'));
-  const vault = new Vault({ db: new Database(':memory:'), secretsPath: join(dir, 'secrets.json') });
+  const vault = new Vault({ db: new Database(':memory:') });
   // defaults before anything is stored
   assert.deepEqual(vault.getModels(), DEFAULT_MODEL_SELECTION);
   // valid per-role update persists and merges (unset roles keep defaults)
@@ -121,8 +77,7 @@ test('getModels returns defaults until set; setModels validates against the allo
 // ── Custom (OpenAI-compatible) provider ──────────────────────────────────────
 
 function freshVault() {
-  const dir = mkdtempSync(join(tmpdir(), 'postter-vault-custom-'));
-  return new Vault({ db: new Database(':memory:'), secretsPath: join(dir, 'secrets.json') });
+  return new Vault({ db: new Database(':memory:') });
 }
 
 test('provider config defaults to openai and round-trips custom per-role selection', () => {
@@ -182,24 +137,3 @@ test('validateApiKey accepts non-sk custom keys but still rejects prose/whitespa
   assert.equal(validateApiKey('custom', ''), 'is empty');
 });
 
-test('custom key stores, reports configured, and a blank customKey clears it (keyless endpoint)', () => {
-  const vault = freshVault();
-  const status = vault.setSecrets({ customKey: 'or-' + 'k'.repeat(20) });
-  assert.deepEqual(status, { anthropicConfigured: false, openaiConfigured: false, customConfigured: true });
-  assert.equal(vault.getSecrets().customKey, 'or-' + 'k'.repeat(20));
-  // explicit blank clears → keyless custom endpoint
-  const cleared = vault.setSecrets({ customKey: '' });
-  assert.equal(cleared.customConfigured, false);
-  assert.equal(vault.getSecrets().customKey, '');
-});
-
-test('CUSTOM_API_KEY env overrides disk custom key', () => {
-  const vault = freshVault();
-  process.env.CUSTOM_API_KEY = 'env-custom-key-000000';
-  try {
-    assert.equal(vault.getSecrets().customKey, 'env-custom-key-000000');
-    assert.equal(vault.secretStatus().customConfigured, true);
-  } finally {
-    delete process.env.CUSTOM_API_KEY;
-  }
-});
