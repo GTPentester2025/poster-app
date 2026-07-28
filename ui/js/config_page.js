@@ -17,10 +17,10 @@ function flash(el, message, ok = true) {
   if (ok) setTimeout(() => { el.textContent = ''; }, 4000);
 }
 
-// Auth token capture + header injection is shared across all pages in
-// js/auth.js (window.SESSION_TOKEN / window.authOptions), loaded before this
-// script. The header path (sessionAuth accepts x-session-token) is immune to
-// cookie host mismatches (127.0.0.1 vs localhost), SameSite, and stale cookies.
+// Auth header injection is shared across all pages in js/auth.js
+// (window.authOptions), loaded before this script. It injects the
+// x-provider-key header only — there is no session token; the server is
+// loopback-only with no token gate.
 
 /** Show a persistent top-of-page banner explaining the tab is unauthorized. */
 function showAuthBanner() {
@@ -28,8 +28,7 @@ function showAuthBanner() {
   const banner = document.createElement('div');
   banner.id = 'authBanner';
   banner.className = 'auth-banner';
-  banner.textContent = 'This tab is not authorized. Open the tokenized URL printed in the server terminal — '
-    + 'e.g. append ?token=YOUR_TOKEN to this page URL (use the SAME host, 127.0.0.1 or localhost, throughout) — then reload.';
+  banner.textContent = 'This tab is not authorized. You do not have permission to access this resource. Reload the page or contact your administrator.';
   document.body.insertBefore(banner, document.body.firstChild);
 }
 
@@ -43,7 +42,7 @@ async function api(path, options = null) {
   }
   if (res.status === 401) {
     showAuthBanner();
-    throw new Error('not authorized — reopen this page with ?token=… from the server terminal, then reload');
+    throw new Error('not authorized — you do not have permission to access this resource');
   }
   if (!res.ok) {
     // surface the server's specific reason (e.g. an invalid-key message) when present
