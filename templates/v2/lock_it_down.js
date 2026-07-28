@@ -98,8 +98,8 @@ function iconCell(o, b, palette, fonts, { x, y, w, h }) {
   });
   cy += estTextHeight(b.label, labSize, w, 1.1) + 14;
 
-  const descH = Math.max(120, y + h - cy);
-  const descSize = fitFontSize(b.text, { width: w, height: descH, maxSize: 42, minSize: 38, lineHeight: 1.26 });
+  const descH = Math.max(40, h - (cy - y) - 10);
+  const descSize = fitFontSize(b.text, { width: w, height: descH, maxSize: 42, minSize: 22, lineHeight: 1.26 });
   o.push({
     ...textbox({
       text: b.text, x, y: cy, w, fontSize: descSize,
@@ -164,7 +164,9 @@ function buildPortrait(content, palette, fonts) {
   const stmtY = Math.max(headCursor + 24, 560);
   const afterStmt = statementLine(o, content.subheadline || 'Strong access. Strong brewery.', palette, fonts, 96, stmtY, W - 192);
 
-  iconRow(o, content.blocks || [], palette, fonts, { x: 96, y: afterStmt + 24, w: W - 192, h: 560 });
+  const iconRowTop = afterStmt + 24;
+  const iconRowH = Math.max(560, 1540 - iconRowTop);
+  iconRow(o, content.blocks || [], palette, fonts, { x: 96, y: iconRowTop, w: W - 192, h: iconRowH });
 
   lockStatementBar(o, 'Lock today. Protect tomorrow.', palette, fonts, 96, 1560, W - 192, 140);
 
@@ -198,7 +200,7 @@ function buildLandscape(content, palette, fonts) {
 
   const rightX = 96 + colW + 48;
   const rightW = W - rightX - 96;
-  iconRow(o, content.blocks || [], palette, fonts, { x: rightX, y: 140, w: rightW, h: 620 });
+  iconRow(o, content.blocks || [], palette, fonts, { x: rightX, y: 140, w: rightW, h: 660 });
   lockStatementBar(o, 'Lock today. Protect tomorrow.', palette, fonts, rightX, 820, rightW, 140);
 
   ctaBar(o, content.callToAction, palette, fonts, W, 1290, 124);

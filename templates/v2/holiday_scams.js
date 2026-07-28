@@ -111,7 +111,7 @@ function scamPanel(o, b, palette, fonts, { x, y, w, h }) {
 
   // description text between image and solution
   const descH = Math.max(90, solY - 16 - cy);
-  const descSize = fitFontSize(b.text, { width: innerW, height: descH, maxSize: 42, minSize: 38, lineHeight: 1.28 });
+  const descSize = fitFontSize(b.text, { width: innerW, height: descH, maxSize: 42, minSize: 22, lineHeight: 1.28 });
   o.push({
     ...textbox({
       text: b.text, x: x + pad, y: cy, w: innerW, fontSize: descSize,
@@ -124,7 +124,7 @@ function scamPanel(o, b, palette, fonts, { x, y, w, h }) {
   // green solution pill (safe action) — the semantic green survives brand override
   if (b.solution) {
     o.push(rect({ x: x + pad, y: solY, w: innerW, h: solH, fill: SEMANTIC_GREEN, rx: 16, layerRole: 'background', msgId: b.id }));
-    const solSize = fitFontSize(b.solution, { width: innerW - 24, height: solH - 20, maxSize: 40, minSize: 38, lineHeight: 1.24 });
+    const solSize = fitFontSize(b.solution, { width: innerW - 24, height: solH - 20, maxSize: 40, minSize: 22, lineHeight: 1.24 });
     o.push({
       ...textbox({
         text: b.solution, x: x + pad + 12, y: solY + Math.round((solH - estTextHeight(b.solution, solSize, innerW - 24, 1.24)) / 2),

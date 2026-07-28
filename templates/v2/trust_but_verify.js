@@ -87,8 +87,8 @@ function iconCell(o, b, palette, fonts, { x, y, w, h }) {
   });
   cy += estTextHeight(b.label, labSize, w, 1.1) + 12;
 
-  const descH = Math.max(110, y + h - cy);
-  const descSize = fitFontSize(b.text, { width: w, height: descH, maxSize: 42, minSize: 38, lineHeight: 1.24 });
+  const descH = Math.max(40, h - (cy - y) - 10);
+  const descSize = fitFontSize(b.text, { width: w, height: descH, maxSize: 42, minSize: 22, lineHeight: 1.24 });
   o.push({
     ...textbox({
       text: b.text, x, y: cy, w, fontSize: descSize,

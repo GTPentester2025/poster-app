@@ -166,16 +166,21 @@ function bulletPanel(o, blocks, palette, fonts, { x, y, w, h }) {
     // spread fieldRef:'label' onto the label textbox
     o.push({ ...labelTb, fieldRef: 'label' });
 
-    // derive chip actual height from pill rect
-    const chipH = pill.height ?? Math.round(22 * 1.4 + 22);
-    const textY = ry + 8 + chipH + 8;
+    // Derive the actual label textbox height (audit uses estTextHeight) so the
+    // body text starts AFTER the label text ends, not just after the pill rect.
+    // The pill may be shorter than the label textbox when the label wraps.
+    const chipPillH = pill.height ?? Math.round(22 * 1.4 + 22);
+    const labelBoxH = labelTb
+      ? Math.round(estTextHeight(String(b.label || 'TIP').toUpperCase(), labelTb.fontSize ?? 22, labelTb.width ?? 190, labelTb.lineHeight ?? 1.2))
+      : chipPillH;
+    const textY = ry + 8 + Math.max(chipPillH, labelBoxH) + 8;
     const textW = w - 48;
     const textBudget = rowH - (textY - ry) - 4;
 
     // message text (fieldRef:'text')
     const { fontSize: msgSize } = fitTextBlock(b.text, {
-      width: textW, height: Math.max(textBudget, 38 * 1.28),
-      maxSize: 40, minSize: 38, lineHeight: 1.28
+      width: textW, height: Math.max(textBudget, 22 * 1.28),
+      maxSize: 40, minSize: 22, lineHeight: 1.28
     });
     o.push({
       ...textbox({

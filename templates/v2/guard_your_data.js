@@ -68,6 +68,7 @@ function statementLine(o, text, palette, fonts, x, y, w) {
 }
 
 // gold "Don't" panel: side image + bulleted list of rules
+// Uses a running-cursor reflow so long text in any block doesn't collide with the next.
 function bulletPanel(o, blocks, palette, fonts, { x, y, w, h }) {
   o.push(rect({ x, y, w, h, fill: palette.primary, rx: 20, layerRole: 'decor', opacity: 0.2 }));
   o.push(rect({ x, y, w, h, fill: 'transparent', stroke: palette.primary, strokeWidth: 3, rx: 20, layerRole: 'decor', opacity: 0.2 }));
@@ -83,24 +84,34 @@ function bulletPanel(o, blocks, palette, fonts, { x, y, w, h }) {
   const listX = x + pad + imgW + 40;
   const listW = w - (listX - x) - pad;
   const n = Math.max(blocks.length, 1);
-  const rowH = (h - pad * 2) / n;
-  blocks.forEach((b, i) => {
-    const ry = y + pad + i * rowH;
-    const cy = ry + rowH / 2;
-    // bullet dot
-    o.push(circle({ x: listX + 12, y: cy, r: 9, fill: DARK_BASE, layerRole: 'decor' }));
-    const textX = listX + 40;
-    const textW = listW - 40;
-    const size = fitFontSize(b.text, { width: textW, height: rowH - 12, maxSize: 44, minSize: 38, lineHeight: 1.22 });
-    const th = estTextHeight(b.text, size, textW, 1.22);
+  // Compute each row's actual text height so we can derive a uniform font size
+  // that fits all blocks within the available panel height (reflow + scale approach).
+  const textX = listX + 40;
+  const textW = listW - 40;
+  const listH = h - pad * 2;
+  // Find a font size where the sum of all block text heights fits within listH.
+  // Step from maxSize down until the total fits, stopping at minSize=22.
+  let chosenSize = 44;
+  for (let s = 44; s >= 22; s -= 2) {
+    const total = blocks.reduce((acc, b) => acc + estTextHeight(b.text, s, textW, 1.22) + 14, 0);
+    if (total <= listH) { chosenSize = s; break; }
+    chosenSize = s; // accept even if not perfect — we'll use running cursor
+  }
+  // Render rows with a running cursor so each row is properly spaced.
+  let cursor = y + pad;
+  blocks.forEach((b) => {
+    const th = estTextHeight(b.text, chosenSize, textW, 1.22);
+    const bulletY = Math.round(cursor + th / 2);
+    o.push(circle({ x: listX + 12, y: bulletY, r: 9, fill: DARK_BASE, layerRole: 'decor' }));
     o.push({
       ...textbox({
-        text: b.text, x: textX, y: Math.round(cy - th / 2), w: textW, fontSize: size,
+        text: b.text, x: textX, y: Math.round(cursor), w: textW, fontSize: chosenSize,
         fontFamily: fonts.body, fontWeight: '700', fill: DARK_BASE, lineHeight: 1.22,
         layerRole: 'message', msgId: b.id, bgRef: palette.primary
       }),
       fieldRef: 'text'
     });
+    cursor += th + 14;
   });
 }
 
@@ -127,19 +138,19 @@ function buildPortrait(content, palette, fonts) {
 
   const headCursor = headlineZone(o, content, palette, fonts, { x: 96, y: 200, w: W - 192, maxSize: 148 });
 
-  // hero image band
+  // hero image band — height capped at 300 to leave sufficient panel space for long content
   const heroY = Math.max(headCursor + 8, 470);
   o.push(imageSlot({
-    slotId: 'slot-hero', x: 96, y: heroY, w: W - 192, h: 560,
+    slotId: 'slot-hero', x: 96, y: heroY, w: W - 192, h: 300,
     styleHint: 'secure data flow through a brewery, glowing shield and padlock over pipelines, operator at controls, cinematic, no text',
     stroke: palette.primary
   }));
 
-  const stmtY = heroY + 560 + 32;
+  const stmtY = heroY + 300 + 32;
   statementLine(o, content.subheadline || 'Lock it. Limit it. Share carefully.', palette, fonts, 96, stmtY, W - 192);
 
-  const panelY = stmtY + 120;
-  bulletPanel(o, content.blocks || [], palette, fonts, { x: 96, y: panelY, w: W - 192, h: 1784 - panelY });
+  const panelY = stmtY + 100;
+  bulletPanel(o, content.blocks || [], palette, fonts, { x: 96, y: panelY, w: W - 192, h: 1836 - panelY });
 
   ctaBar(o, content.callToAction, palette, fonts, W, 1848);
   return canvas;
@@ -179,7 +190,7 @@ function buildLandscape(content, palette, fonts) {
   const rightX = 96 + colW + 48;
   const rightW = W - rightX - 96;
   statementLine(o, content.subheadline || 'Lock it. Limit it. Share carefully.', palette, fonts, rightX, 176, rightW);
-  bulletPanel(o, content.blocks || [], palette, fonts, { x: rightX, y: 300, w: rightW, h: 964 });
+  bulletPanel(o, content.blocks || [], palette, fonts, { x: rightX, y: 300, w: rightW, h: 978 });
 
   ctaBar(o, content.callToAction, palette, fonts, W, 1290, 124);
   return canvas;

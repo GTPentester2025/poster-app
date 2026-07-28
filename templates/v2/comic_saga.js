@@ -107,7 +107,7 @@ function captionBar(o, b, palette, fonts, { x, y, w, h }) {
   // Landscape action panels are 422px wide (textW~306) so even 4 lines at 38px
   // must fit: 4 * 38 * 1.0 = 152, within 5% of avail=150 (152 ≤ 157.5).
   const CAP_LINE_H = 1.0;
-  const size = fitFontSize(b.text, { width: textW, height: h - 20, maxSize: 44, minSize: 38 });
+  const size = fitFontSize(b.text, { width: textW, height: h - 20, maxSize: 44, minSize: 16 });
   const estH = estTextHeight(b.text, size, textW, CAP_LINE_H);
   // Bar height: at least h, but grows if text still overflows at floor size.
   const barH = Math.max(h, Math.round(estH) + 24);
@@ -127,7 +127,7 @@ function captionBar(o, b, palette, fonts, { x, y, w, h }) {
 
 /** Bold panel heading over a white panel; binds msgId + fieldRef 'heading'. */
 function panelHeading(o, b, palette, fonts, { x, y, w, headMax, headH = 130 }) {
-  const size = fitFontSize(b.heading, { width: w, height: headH, maxSize: headMax, minSize: 40 });
+  const size = fitFontSize(b.heading, { width: w, height: headH, maxSize: headMax, minSize: 22 });
   o.push({
     ...textbox({
       text: b.heading, x, y, w, fontSize: size, lineHeight: 1.04,

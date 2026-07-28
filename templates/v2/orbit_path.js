@@ -161,11 +161,13 @@ function stationCard(o, b, palette, fonts, { cardX, cardY, cardW, cardH, nx, ny 
     fieldRef: 'label'
   });
 
-  // block text — light ink on the DARK_PANEL card, >=38px
+  // block text — light ink on the DARK_PANEL card
+  // bodyY is computed from the actual pill area (not a hardcoded 100) so long labels
+  // don't eat into the text budget and long body text doesn't overflow the card.
   const textX = cardX + 40;
-  const bodyY = cardY + 100;
+  const bodyY = pillY + pillH + 8;
   const bodyW = cardW - 80;
-  const size = fitFontSize(b.text, { width: bodyW, height: cardH - (bodyY - cardY) - 26, maxSize: 44, minSize: 38 });
+  const size = fitFontSize(b.text, { width: bodyW, height: Math.max(20, cardH - (bodyY - cardY) - 16), maxSize: 44, minSize: 16 });
   o.push({
     ...textbox({
       text: b.text, x: textX, y: bodyY, w: bodyW, fontSize: size,
@@ -251,15 +253,15 @@ function buildLandscape(content, palette, fonts) {
   const hubCy = 720;
 
   // Above-orbit cards: cardY = orbitY - gap - cardH = 720-70-360=290.
-  // First card body text (bodyY) = cardY + 100 = 390.
-  // Compute subMaxH from the actual headline height so long headlines
-  // don't push the subheadline into the first card's body zone.
+  // First card pill (label) starts at cardY+24 = 314. We clamp the subheadline so it
+  // ends before the pill starts — using pillTop (not bodyTop) prevents subheadline~label
+  // overlap when headlines are long.
   const LS_CARD_H = 360;
   const LS_GAP = 70;
-  const firstCardBodyTop = hubCy - LS_GAP - LS_CARD_H + 100;  // = 390
+  const firstCardPillTop = hubCy - LS_GAP - LS_CARD_H + 24;  // = 314
   const headSizeL = fitFontSize(content.headline, { width: 1500, height: 150, maxSize: 92, minSize: 80 });
   const headHL = estTextHeight(content.headline, headSizeL, 1500);
-  const subMaxHL = Math.max(0, firstCardBodyTop - (80 + headHL + 20) - 8);
+  const subMaxHL = Math.max(0, firstCardPillTop - (80 + headHL + 20) - 8);
   headlineZone(o, content, palette, fonts, { x: 90, y: 80, w: 1500, maxSize: 92, headMaxH: 150, subMaxH: subMaxHL, align: 'left' });
 
   hubZone(o, palette, { cx: hubCx, cy: hubCy, slot: 240 });
