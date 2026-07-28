@@ -32,6 +32,12 @@ export function stressContentFor(contentSchema) {
   if (typeof c.subheadline === 'string') c.subheadline = LONG_SUB;
   if (typeof c.callToAction === 'string') c.callToAction = LONG_CTA;
   const cs = contentSchema || {};
+  const LONG_MAP = {
+    label: LONG_LABEL, heading: LONG_HEAD, eyebrow: LONG_LABEL,
+    text: LONG_BODY, body: LONG_BODY, answer: LONG_BODY, solution: LONG_BODY,
+    response: LONG_BODY, outcome: LONG_BODY, caption: LONG_BODY, quote: LONG_BODY,
+    question: LONG_BODY, situation: LONG_BODY, condition: LONG_LABEL, figure: LONG_LABEL, stat: LONG_LABEL
+  };
   const stressArr = (arr, schema) => {
     if (!Array.isArray(arr)) return arr;
     const max = Number.isInteger(schema?.max) ? schema.max : arr.length;
@@ -39,14 +45,16 @@ export function stressContentFor(contentSchema) {
     for (let i = 0; i < Math.max(arr.length, max); i++) {
       const src = arr[i % arr.length] || arr[0] || {};
       const item = structuredClone(src);
-      if ('label' in item && item.label != null) item.label = LONG_LABEL;
-      if ('text' in item && item.text != null) item.text = LONG_BODY;
+      for (const field of (schema?.fields || Object.keys(item))) {
+        if (field in item && typeof item[field] === 'string' && item[field] != null && LONG_MAP[field] != null) {
+          item[field] = LONG_MAP[field];
+        }
+      }
       out.push(item);
     }
     return out;
   };
   if (Array.isArray(c.blocks)) c.blocks = stressArr(c.blocks, cs.blocks);
-  if (Array.isArray(c.messages)) c.messages = stressArr(c.messages, cs.messages);
   return c;
 }
 
