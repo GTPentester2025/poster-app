@@ -1,7 +1,9 @@
 // Poster app server. Localhost by design — the masking boundary requires all
-// model traffic to originate here, never from the browser. Every /api route
-// (including the SSE stream) sits behind the local session token so no other
-// process on the machine can read pipeline events or org config.
+// model traffic to originate here, never from the browser. The server binds
+// 127.0.0.1 only (loopback is the sole access boundary — no token gate). The AI
+// provider key is never stored: it rides each request as x-provider-key and is
+// read request-scoped via AsyncLocalStorage, so concurrent browsers never share
+// a key.
 
 import express from 'express';
 import { join, resolve } from 'node:path';
