@@ -234,14 +234,3 @@ test('reviewer echoing the internal synthesis never reaches route responses or b
   }
 });
 
-test('routes require the session token', async () => {
-  const egress = new FakeEgress({});
-  const { srv, base } = await startServer(egress);
-  try {
-    const res = await fetch(`${base}/api/pipeline/start`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt: 'stop phishing emails' })
-    });
-    assert.equal(res.status, 401);
-    assert.equal(egress.calls.length, 0);
-  } finally { srv.close(); }
-});

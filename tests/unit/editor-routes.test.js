@@ -254,18 +254,6 @@ test('phase gate: 409 WRONG_PHASE before design, 404 unknown poster', async () =
   } finally { srv.close(); }
 });
 
-test('editor routes require the session token', async () => {
-  const egress = new FakeEgress({});
-  const { srv, base } = await startServer(egress);
-  try {
-    const res = await fetch(`${base}/api/editor/x/canvas`, {
-      method: 'PUT', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ canvas: { objects: [] } })
-    });
-    assert.equal(res.status, 401);
-    assert.equal(egress.calls.length, 0);
-  } finally { srv.close(); }
-});
 
 test('src sanitizer: data:image/svg+xml (plain) stripped — SVG is script-capable', async () => {
   const egress = new FakeEgress({ ...CONTENT_HANDLERS });

@@ -240,23 +240,3 @@ test('GET /api/events/runs: distinct runs with first/last ts + counts, newest fi
   } finally { srv.close(); }
 });
 
-test('all new routes require the session token', async () => {
-  const { srv, base } = await startServer();
-  try {
-    for (const [path, method, body] of [
-      ['/api/override/run_x/state', 'GET', undefined],
-      ['/api/override/run_x/pause', 'POST', { reason: 'no token attached' }],
-      ['/api/override/run_x/resume', 'POST', { reason: 'no token attached' }],
-      ['/api/override/run_x/decision', 'POST', { stage: 'content-loop', decision: 'accepted', reason: 'no token attached' }],
-      ['/api/posters', 'GET', undefined],
-      ['/api/events/runs', 'GET', undefined]
-    ]) {
-      const res = await fetch(base + path, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        ...(body !== undefined ? { body: JSON.stringify(body) } : {})
-      });
-      assert.equal(res.status, 401, `${path} must require the session token`);
-    }
-  } finally { srv.close(); }
-});

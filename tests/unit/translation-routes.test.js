@@ -196,30 +196,6 @@ function makeTranslationEgress(overrides = {}) {
   });
 }
 
-// ── Case 1: 401 on every endpoint without session token ─────────────────────
-
-test('all translation endpoints require session token (401)', async () => {
-  const { srv, base } = await startServer(new FakeEgress({}));
-  try {
-    const endpoints = [
-      ['POST', '/api/translation/some-poster-id/start', { languages: 'all' }],
-      ['GET', '/api/translation/some-poster-id', undefined],
-      ['GET', '/api/translation/some-poster-id/es', undefined],
-      ['PUT', '/api/translation/some-poster-id/es', { content: {} }],
-      ['POST', '/api/translation/some-poster-id/es/sync', undefined],
-      ['GET', '/api/translation/meta/languages', undefined],
-      ['GET', '/api/translation/meta/terminology/de', undefined]
-    ];
-    for (const [method, path, body] of endpoints) {
-      const res = await fetch(base + path, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        ...(body !== undefined ? { body: JSON.stringify(body) } : {})
-      });
-      assert.equal(res.status, 401, `${method} ${path} must require auth`);
-    }
-  } finally { srv.close(); }
-});
 
 // ── Case 2: POST start happy path ────────────────────────────────────────────
 

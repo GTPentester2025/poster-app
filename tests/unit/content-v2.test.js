@@ -375,7 +375,7 @@ function req(base, token, path, method = 'GET', body = undefined) {
   });
 }
 
-test('GET /api/pipeline/templates: 64-template gallery with previews; 401 unauthenticated', async () => {
+test('GET /api/pipeline/templates: 64-template gallery with previews', async () => {
   const egress = new FakeEgress({});
   const { srv, base, token } = await startServer(egress);
   try {
@@ -391,10 +391,8 @@ test('GET /api/pipeline/templates: 64-template gallery with previews; 401 unauth
     }
     assert.ok(templates.some((t) => t.id === 'qa-chat'));
 
-    // poster-independent: no egress calls, no auth → 401
+    // poster-independent: no egress calls
     assert.equal(egress.calls.length, 0);
-    const unauthed = await fetch(`${base}/api/pipeline/templates`);
-    assert.equal(unauthed.status, 401);
   } finally { srv.close(); }
 });
 

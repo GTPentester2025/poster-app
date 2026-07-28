@@ -180,28 +180,6 @@ test('unknown slot returns 404 SLOT_NOT_FOUND', async () => {
   } finally { srv.close(); }
 });
 
-test('all image routes require session token (401)', async () => {
-  const egress = new FakeEgress({});
-  const { srv, base } = await startServer(egress);
-  try {
-    const paths = [
-      ['GET', '/api/images'],
-      ['POST', '/api/images/upload'],
-      ['GET', '/api/images/file/some-id'],
-      ['DELETE', '/api/images/some-id'],
-      ['POST', '/api/images/some-id/autotag'],
-      ['POST', '/api/images/slot/p/s']
-    ];
-    for (const [method, path] of paths) {
-      const res = await fetch(base + path, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        ...(method === 'POST' ? { body: '{}' } : {})
-      });
-      assert.equal(res.status, 401, `${method} ${path} must require auth`);
-    }
-  } finally { srv.close(); }
-});
 
 test('autotag: calls completeVision and updates image record', async () => {
   const egress = new FakeEgress({

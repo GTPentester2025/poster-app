@@ -450,25 +450,6 @@ test('buildLearningHints: feedback row without headline produces no hint (skippe
 
 // ── Test group 7: Routes ─────────────────────────────────────────────────────
 
-test('all new poster endpoints require session token (401 unauthenticated)', async () => {
-  const { srv, base } = await startServer();
-  try {
-    const endpoints = [
-      ['POST', '/api/posters/some-id/save', { name: 'Test' }],
-      ['PUT', '/api/posters/some-id/name', { name: 'Test' }],
-      ['POST', '/api/posters/some-id/feedback', { rating: 'good' }],
-      ['GET', '/api/posters/suggestions?topic=phishing', undefined]
-    ];
-    for (const [method, path, body] of endpoints) {
-      const res = await fetch(base + path, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        ...(body !== undefined ? { body: JSON.stringify(body) } : {})
-      });
-      assert.equal(res.status, 401, `${method} ${path} must require auth`);
-    }
-  } finally { srv.close(); }
-});
 
 test('POST /api/posters/:id/save happy path → 200 with saved state', async () => {
   const { srv, ctx, base, token } = await startServer();

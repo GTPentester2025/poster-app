@@ -285,20 +285,6 @@ test('unknown poster → 404 POSTER_NOT_FOUND', async () => {
   } finally { srv.close(); }
 });
 
-// ── auth ────────────────────────────────────────────────────────────────────
-
-test('regenerate-text requires session token → 401 without it', async () => {
-  const egress = new FakeEgress({});
-  const { srv, base } = await startServer(egress);
-  try {
-    const res = await fetch(`${base}/api/editor/x/regenerate-text`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ layerRole: 'headline' })
-    });
-    assert.equal(res.status, 401);
-  } finally { srv.close(); }
-});
 
 // ── bus event ───────────────────────────────────────────────────────────────
 

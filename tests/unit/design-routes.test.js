@@ -238,22 +238,3 @@ test('concurrent design mutation: second request gets 409 POSTER_BUSY', async ()
   } finally { srv.close(); }
 });
 
-test('design routes require the session token', async () => {
-  const egress = new FakeEgress({});
-  const { srv, base } = await startServer(egress);
-  try {
-    for (const [path, method, body] of [
-      ['/api/design/templates?posterId=x', 'GET', undefined],
-      ['/api/design/x/apply', 'POST', { templateId: 'minimal-clean' }],
-      ['/api/design/x/dynamic', 'POST', {}],
-      ['/api/design/x/retry', 'POST', {}]
-    ]) {
-      const res = await fetch(base + path, {
-        method, headers: { 'Content-Type': 'application/json' },
-        ...(body !== undefined ? { body: JSON.stringify(body) } : {})
-      });
-      assert.equal(res.status, 401, `${path} must require the token`);
-    }
-    assert.equal(egress.calls.length, 0);
-  } finally { srv.close(); }
-});

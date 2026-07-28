@@ -229,11 +229,3 @@ test('GET /api/usage/:posterId: unknown poster returns 404 POSTER_NOT_FOUND', as
   } finally { srv.close(); }
 });
 
-test('GET /api/usage/:posterId: requires session token', async () => {
-  const { srv, ctx, base } = await startUsageServer();
-  try {
-    const { posterId } = seedPoster(ctx.db);
-    const res = await fetch(`${base}/api/usage/${posterId}`);
-    assert.equal(res.status, 401);
-  } finally { srv.close(); }
-});

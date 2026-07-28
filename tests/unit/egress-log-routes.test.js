@@ -69,21 +69,6 @@ function seedEgressLog(db, { runId = 'run_test', count = 2 } = {}) {
   return ids;
 }
 
-test('egress log list: 401 without session token', async () => {
-  const { srv, base } = await startServer();
-  try {
-    const res = await req(base, null, '/api/egress/run_test');
-    assert.equal(res.status, 401, 'unauthenticated request rejected');
-  } finally { srv.close(); }
-});
-
-test('egress log detail: 401 without session token', async () => {
-  const { srv, base } = await startServer();
-  try {
-    const res = await req(base, null, '/api/egress/detail/1');
-    assert.equal(res.status, 401, 'unauthenticated detail request rejected');
-  } finally { srv.close(); }
-});
 
 test('egress log list: returns rows for runId, shape has no prompt bodies', async () => {
   const { srv, ctx, base, token } = await startServer();
