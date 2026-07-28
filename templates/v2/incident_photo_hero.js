@@ -134,8 +134,8 @@ function listCard(o, blocks, palette, fonts, { x, y, w, h }) {
     const textX = dotCX + dotR + 16;
     const textW = x + w - 24 - textX;
     const { fontSize: msgSize } = fitTextBlock(b.text, {
-      width: textW, height: Math.max(rowH, 38 * 1.28),
-      maxSize: 44, minSize: 38, lineHeight: 1.28
+      width: textW, height: rowH,
+      maxSize: 44, minSize: 16, lineHeight: 1.28
     });
     const msgH = estTextHeight(b.text, msgSize, textW, 1.28);
     const msgY = ry + Math.max(0, Math.round((rowH - msgH) / 2));

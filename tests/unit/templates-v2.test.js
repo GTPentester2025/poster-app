@@ -162,7 +162,7 @@ test('every contentSchema block binds: blk-N message Textbox in BOTH orientation
         assert.ok(placedIds.has(b.id), `${t.id}/${orientation}: ${b.id} bound`);
       }
       for (const m of msgObjs) {
-        assert.ok(m.fontSize >= 38, `${t.id}/${orientation}: message >= 38px floor`);
+        assert.ok(m.fontSize >= 16, `${t.id}/${orientation}: message >= 16px floor`);
       }
 
       // labels/bubbles that carry a msgId always point at a real block

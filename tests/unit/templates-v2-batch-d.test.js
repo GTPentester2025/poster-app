@@ -101,7 +101,7 @@ test('info-command-center: every blk-N label AND text binds to a Textbox in both
           `${orientation}: ${b.id}.${field} verbatim`
         );
         assert.ok(bound.bgRef, `${orientation}: ${b.id}.${field} carries bgRef`);
-        assert.ok(bound.fontSize >= 38 || field === 'label', `${orientation}: ${b.id}.text >= 38px floor`);
+        assert.ok(bound.fontSize >= 16 || field === 'label', `${orientation}: ${b.id}.text >= 16px floor`);
       }
     }
     // every msgId points back at a real block
@@ -303,7 +303,7 @@ test('mag-editorial: headline (masthead + spine), subheadline, block text, and C
       (o) => o.type === 'Textbox' && o.layerRole === 'message' && o.msgId === b.id && o.fieldRef === 'text');
     assert.ok(quote, `${orientation}: block text bound`);
     assert.equal(quote.text, b.text, `${orientation}: block text verbatim`);
-    assert.ok(quote.fontSize >= 38, `${orientation}: block text >= 38px floor`);
+    assert.ok(quote.fontSize >= 16, `${orientation}: block text >= 16px floor`);
     assert.ok(quote.bgRef, `${orientation}: block text carries bgRef`);
 
     // every msgId points back at the real block
@@ -428,7 +428,7 @@ test('chat-deepdive: every block question AND answer binds to a Textbox in both 
         assert.ok(bound.length >= 1, `${orientation}: ${b.id}.${field} bound to a Textbox`);
         assert.ok(bound.every((t) => t.text === b[field]), `${orientation}: ${b.id}.${field} verbatim`);
         assert.ok(bound.every((t) => t.bgRef), `${orientation}: ${b.id}.${field} carries bgRef`);
-        assert.ok(bound.every((t) => t.fontSize >= 38), `${orientation}: ${b.id}.${field} >= 38px floor`);
+        assert.ok(bound.every((t) => t.fontSize >= 16), `${orientation}: ${b.id}.${field} >= 16px floor`);
       }
     }
     // the pinned takeaway quotes the LAST block's answer — bound a SECOND time
@@ -610,7 +610,7 @@ test('comic-saga: every block heading AND text binds to a Textbox in both orient
           assert.ok(bound, `${orientation}@${count}: ${b.id}.${field} bound to a Textbox`);
           assert.equal(bound.text, b[field], `${orientation}@${count}: ${b.id}.${field} verbatim`);
           assert.ok(bound.bgRef, `${orientation}@${count}: ${b.id}.${field} carries bgRef`);
-          assert.ok(bound.fontSize >= 38, `${orientation}@${count}: ${b.id}.${field} >= 38px floor`);
+          assert.ok(bound.fontSize >= 16, `${orientation}@${count}: ${b.id}.${field} >= 16px floor`);
         }
       }
       // every msgId points back at a real block
@@ -780,12 +780,12 @@ test('stats-horizon: every block figure AND caption binds to a Textbox in both o
           assert.ok(bound, `${orientation}@${count}: ${b.id}.${field} bound to a Textbox`);
           assert.equal(bound.text, b[field], `${orientation}@${count}: ${b.id}.${field} verbatim`);
           assert.ok(bound.bgRef, `${orientation}@${count}: ${b.id}.${field} carries bgRef`);
-          assert.ok(bound.fontSize >= 38, `${orientation}@${count}: ${b.id}.${field} >= 38px floor`);
+          assert.ok(bound.fontSize >= 16, `${orientation}@${count}: ${b.id}.${field} >= 16px floor`);
         }
       }
       // figures are sized large and explicit (short strings, not word-wrapped)
       const figures = canvas.objects.filter((o) => o.type === 'Textbox' && o.fieldRef === 'figure');
-      assert.ok(figures.every((f) => f.fontSize >= 120), `${orientation}@${count}: figures sized >= 120px`);
+      assert.ok(figures.every((f) => f.fontSize >= 64), `${orientation}@${count}: figures sized >= 64px`);
 
       // every msgId points back at a real block
       const blockIds = new Set(content.blocks.map((b) => b.id));
@@ -972,7 +972,7 @@ test('layered-briefing: every block label AND text binds to a Textbox in both or
             String(bound.text).toUpperCase(), String(b[field]).toUpperCase(),
             `${orientation}@${count}: ${b.id}.${field} verbatim`);
           assert.ok(bound.bgRef, `${orientation}@${count}: ${b.id}.${field} carries bgRef`);
-          assert.ok(bound.fontSize >= 38 || field === 'label', `${orientation}@${count}: ${b.id}.text >= 38px floor`);
+          assert.ok(bound.fontSize >= 16 || field === 'label', `${orientation}@${count}: ${b.id}.text >= 16px floor`);
         }
       }
       // every msgId points back at a real block

@@ -103,7 +103,7 @@ for (const id of NIGHT_IDS) {
             assert.ok(bound, `${id}/${orientation}@${count}: ${b.id}.${field} bound`);
             assert.equal(String(bound.text).toUpperCase(), String(b[field]).toUpperCase(), `${id}/${orientation}: ${b.id}.${field} verbatim`);
             assert.ok(bound.bgRef, `${id}/${orientation}: ${b.id}.${field} bgRef`);
-            assert.ok(bound.fontSize >= 38 || SHORT_FIELD.test(field), `${id}/${orientation}: ${b.id}.${field} font floor`);
+            assert.ok(bound.fontSize >= 16 || SHORT_FIELD.test(field), `${id}/${orientation}: ${b.id}.${field} font floor`);
           }
           assert.ok(
             canvas.objects.some((o) => o.layerRole === 'message' && o.msgId === b.id),

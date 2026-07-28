@@ -224,8 +224,8 @@ function numberedCard(o, b, idx, palette, fonts, { x, y, w, h, badgeW, badgeH })
   const textBudget = h - (cursor - y) - 20;
   const { fontSize: msgSize } = fitTextBlock(b.text, {
     width: innerW,
-    height: Math.max(textBudget, 38 * 1.28),
-    maxSize: 42, minSize: 38, lineHeight: 1.28
+    height: Math.max(textBudget, 20 * 1.28),
+    maxSize: 42, minSize: 20, lineHeight: 1.28
   });
   o.push({
     ...textbox({

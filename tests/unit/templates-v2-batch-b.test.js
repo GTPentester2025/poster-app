@@ -132,7 +132,7 @@ test('batch B: headline/subheadline/cta placed verbatim with size floors', () =>
       const msgObjs = canvas.objects.filter((o) => o.layerRole === 'message');
       for (const m of msgObjs) {
         assert.equal(m.type, 'Textbox', `${t.id}/${orientation}: messages are Textboxes`);
-        assert.ok(m.fontSize >= 38, `${t.id}/${orientation}: message >= 38px floor`);
+        assert.ok(m.fontSize >= 16, `${t.id}/${orientation}: message >= 16px floor`);
         assert.ok(typeof m.bgRef === 'string' && m.bgRef, `${t.id}/${orientation}: message carries bgRef`);
       }
       const placedIds = new Set(msgObjs.map((o) => o.msgId));

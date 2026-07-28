@@ -10,7 +10,7 @@
 
 import {
   textbox, rect, polygon, chip,
-  fitFontSize, estTextHeight,
+  fitFontSize, fitTextBlock, estTextHeight,
   pv, pvRect, pvPoly, pvBars, backgroundImageSlot
 } from '../helpers.js';
 import {
@@ -54,63 +54,127 @@ function branchLine(o, palette, x1, y1, x2, y2) {
   o.push(rect({ x: x1, y: y1 - 4, w: len, h: 8, fill: palette.primary, rx: 4, angle, layerRole: 'decor' }));
 }
 
+// Zone geometry constants for a branch card (cursor layout). `tight` shrinks
+// the chrome (chips, pads, arrow) when the card budget is small so the two
+// bodies still get room without the card overflowing its span.
+const BC_PAD_X = 44;
+
+function bcChrome(budgetH) {
+  const xtight = budgetH < 220;      // 4 fat cards in a short landscape span
+  const tight = budgetH < 300;
+  return {
+    condPad: xtight ? 10 : tight ? 14 : 20,   // top/bottom pad
+    chipGap: xtight ? 8 : tight ? 10 : 12,     // gap between chip row and its body
+    arrowH: xtight ? 14 : tight ? 20 : 36,     // arrow zone between condition and outcome
+    zoneGap: xtight ? 8 : tight ? 10 : 16,      // gap around the arrow
+    chipFs: budgetH >= 300 ? 22 : xtight ? 14 : 16
+  };
+}
+
+/**
+ * Measure the content height a branch card needs, and the fitted font sizes for
+ * its condition/outcome bodies, at a shared body font floor `bodyMin`. Returns
+ * { need, condSize, outSize, chrome }. The build lays cards out by these ACTUAL
+ * heights (cursor advance) instead of assuming a fixed card height, so long
+ * bodies never collide with the chips, the arrow, or the next card.
+ */
+function measureBranchCard(b, fonts, { w, budgetH, bodyMin }) {
+  const innerW = w - BC_PAD_X * 2;
+  const ch = bcChrome(budgetH);
+  const chipH = Math.round(ch.chipFs * 1.2) + Math.round(ch.chipFs * 0.46) * 2; // chip() height
+  // per-body available height (half the budget minus chrome)
+  const bodyBudget = Math.max(
+    bodyMin,
+    Math.round((budgetH - ch.condPad * 2 - chipH * 2 - ch.chipGap * 2 - ch.arrowH - ch.zoneGap * 2) / 2)
+  );
+  const cond = fitTextBlock(String(b.condition), { width: innerW, height: bodyBudget, maxSize: 46, minSize: bodyMin });
+  const out = fitTextBlock(String(b.outcome), { width: innerW, height: bodyBudget, maxSize: 46, minSize: bodyMin });
+  const need = ch.condPad
+    + chipH + ch.chipGap + Math.round(cond.height)
+    + ch.zoneGap + ch.arrowH + ch.zoneGap
+    + chipH + ch.chipGap + Math.round(out.height)
+    + ch.condPad;
+  return { need, condSize: cond.fontSize, outSize: out.fontSize, chrome: { ...ch, chipH } };
+}
+
 /**
  * One branch card: a DARK_PANEL card holding a CONDITION zone (accent "IF" chip
  * + condition body) that flows via a small arrow into an OUTCOME zone (primary
- * chip + outcome body). condition/outcome bodies are the bound fields.
+ * chip + outcome body). condition/outcome bodies are the bound fields. The card
+ * lays its content with a vertical cursor from the pre-measured font sizes so
+ * the actual wrapped bodies never overlap the chrome or spill past height `h`.
  */
-function branchCard(o, b, palette, fonts, { x, y, w, h }) {
+function branchCard(o, b, palette, fonts, { x, y, w, h, m }) {
   o.push(rect({ x, y, w, h, fill: DARK_PANEL, rx: 26, layerRole: 'background', msgId: b.id }));
   // accent rail down the left edge (the "flow" spine)
   o.push(rect({ x, y, w: 12, h, fill: palette.accent, rx: 6, layerRole: 'decor' }));
 
-  const padX = 44;
-  const innerX = x + padX;
-  const innerW = w - padX * 2;
-  const half = Math.round(h / 2);
+  const innerX = x + BC_PAD_X;
+  const innerW = w - BC_PAD_X * 2;
+  const { condSize, outSize, chrome } = m;
+  const { condPad, chipGap, arrowH, zoneGap, chipFs, chipH } = chrome;
 
-  // Zone allocation: proportional to card height so small cards don't break
-  const chipH     = Math.min(54, Math.round(h * 0.22));   // space consumed by chip row
-  const condPad   = Math.min(20, Math.round(h * 0.08));   // top pad before IF chip
-  const arrowH    = Math.min(36, Math.round(h * 0.10));   // arrow zone in the middle
-
-  // CONDITION zone (top half): accent "IF" chip + condition text
-  const condTop   = y + condPad;
-  const chipFs    = h >= 200 ? 22 : 16;
-  o.push(...chip({ text: 'if', x: innerX, y: condTop, fontSize: chipFs, bg: palette.accent, color: DARK_BASE, font: fonts.head, msgId: b.id, square: true }));
-  const condBodyY = condTop + chipH;
-  const condH     = Math.max(38, half - condPad - chipH - arrowH);
-  const condSize  = fitFontSize(b.condition, { width: innerW, height: condH, maxSize: 46, minSize: 38 });
+  // CONDITION zone: accent "IF" chip + condition text
+  let cursor = y + condPad;
+  o.push(...chip({ text: 'if', x: innerX, y: cursor, fontSize: chipFs, bg: palette.accent, color: DARK_BASE, font: fonts.head, msgId: b.id, square: true }));
+  cursor += chipH + chipGap;
+  const condH = estTextHeight(String(b.condition), condSize, innerW);
   o.push({
     ...textbox({
-      text: b.condition, x: innerX, y: condBodyY, w: innerW, fontSize: condSize,
+      text: b.condition, x: innerX, y: cursor, w: innerW, fontSize: condSize,
       fontFamily: fonts.body, fontWeight: '600', fill: DARK_INK,
       layerRole: 'message', msgId: b.id, bgRef: DARK_PANEL
     }),
     fieldRef: 'condition'
   });
+  cursor += Math.round(condH) + zoneGap;
 
   // small arrow between the zones (condition → outcome)
-  const midY = y + half;
-  const ar = Math.min(16, Math.round(h * 0.06));
+  const ar = Math.min(16, Math.round(arrowH / 2));
+  const arrowMid = cursor + Math.round(arrowH / 2);
   o.push(polygon([
-    { x: innerX, y: midY - ar }, { x: innerX + ar * 1.6, y: midY }, { x: innerX, y: midY + ar }
+    { x: innerX, y: arrowMid - ar }, { x: innerX + ar * 1.6, y: arrowMid }, { x: innerX, y: arrowMid + ar }
   ], { fill: palette.primary, layerRole: 'decor', opacity: 0.18 }));
+  cursor += arrowH + zoneGap;
 
-  // OUTCOME zone (bottom half): primary chip + outcome text
-  const outTop    = midY + arrowH;
-  o.push(...chip({ text: 'then', x: innerX, y: outTop, fontSize: chipFs, bg: palette.primary, color: DARK_BASE, font: fonts.head, msgId: b.id, square: true }));
-  const outBodyY  = outTop + chipH;
-  const outH      = Math.max(38, (y + h - condPad) - outBodyY);
-  const outSize   = fitFontSize(b.outcome, { width: innerW, height: outH, maxSize: 46, minSize: 38 });
+  // OUTCOME zone: primary chip + outcome text
+  o.push(...chip({ text: 'then', x: innerX, y: cursor, fontSize: chipFs, bg: palette.primary, color: DARK_BASE, font: fonts.head, msgId: b.id, square: true }));
+  cursor += chipH + chipGap;
   o.push({
     ...textbox({
-      text: b.outcome, x: innerX, y: outBodyY, w: innerW, fontSize: outSize,
+      text: b.outcome, x: innerX, y: cursor, w: innerW, fontSize: outSize,
       fontFamily: fonts.body, fontWeight: '700', fill: DARK_INK,
       layerRole: 'message', msgId: b.id, bgRef: DARK_PANEL
     }),
     fieldRef: 'outcome'
   });
+}
+
+/**
+ * Lay branch cards down a vertical span [top, bottom]. Cards size to their
+ * measured content; if the content stack can't fit, the per-body font floor is
+ * lowered until it does (never drops a card). Returns an array of
+ * { y, h, m } placements aligned with `blocks`.
+ */
+function layoutBranchCards(blocks, fonts, { w, top, bottom, gap }) {
+  const n = Math.max(blocks.length, 1);
+  const avail = bottom - top;
+  for (let bodyMin = 38; bodyMin >= 12; bodyMin -= 2) {
+    const budgetH = Math.round((avail - gap * (n - 1)) / n);
+    const ms = blocks.map((b) => measureBranchCard(b, fonts, { w, budgetH, bodyMin }));
+    const heights = ms.map((m) => Math.max(budgetH, m.need));
+    const totalH = heights.reduce((a, c) => a + c, 0) + gap * (n - 1);
+    if (totalH <= avail || bodyMin <= 12) {
+      const out = [];
+      let y = top;
+      blocks.forEach((b, i) => {
+        out.push({ y, h: heights[i], m: ms[i] });
+        y += heights[i] + gap;
+      });
+      return out;
+    }
+  }
+  return [];
 }
 
 function headlineZone(o, content, palette, fonts, { x, y, w, maxSize, headMaxH = 300, subMaxH = 120 }) {
@@ -160,15 +224,15 @@ function buildPortrait(content, palette, fonts) {
   const cardsTop = nodeCY + 150;
   const cardsBottom = 1830;
   const gap = 30;
-  const cardH = Math.round((cardsBottom - cardsTop - gap * (n - 1)) / n);
   const cardW = W - 240;
   const cardX = 120;
 
+  const placements = layoutBranchCards(blocks, fonts, { w: cardW, top: cardsTop, bottom: cardsBottom, gap });
   blocks.forEach((b, i) => {
-    const y = cardsTop + i * (cardH + gap);
+    const { y, h, m } = placements[i];
     // glowing connector from the node down to each card's left rail
-    branchLine(o, palette, 707, nodeCY + 70, cardX + 40, y + Math.round(cardH / 2));
-    branchCard(o, b, palette, fonts, { x: cardX, y, w: cardW, h: cardH });
+    branchLine(o, palette, 707, nodeCY + 70, cardX + 40, y + Math.round(h / 2));
+    branchCard(o, b, palette, fonts, { x: cardX, y, w: cardW, h, m });
   });
 
   ctaBar(o, content.callToAction, palette, fonts, W, 1856);
@@ -205,14 +269,14 @@ function buildLandscape(content, palette, fonts) {
   const cardsTop = 440;
   const cardsBottom = 1250;
   const gap = 28;
-  const cardH = Math.round((cardsBottom - cardsTop - gap * (n - 1)) / n);
   const cardX = 860;
   const cardW = W - cardX - 120;
 
+  const placements = layoutBranchCards(blocks, fonts, { w: cardW, top: cardsTop, bottom: cardsBottom, gap });
   blocks.forEach((b, i) => {
-    const y = cardsTop + i * (cardH + gap);
-    branchLine(o, palette, nodeCX + 74, nodeCY, cardX, y + Math.round(cardH / 2));
-    branchCard(o, b, palette, fonts, { x: cardX, y, w: cardW, h: cardH });
+    const { y, h, m } = placements[i];
+    branchLine(o, palette, nodeCX + 74, nodeCY, cardX, y + Math.round(h / 2));
+    branchCard(o, b, palette, fonts, { x: cardX, y, w: cardW, h, m });
   });
 
   ctaBar(o, content.callToAction, palette, fonts, W, 1270);

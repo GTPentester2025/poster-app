@@ -7,7 +7,7 @@
 
 import {
   textbox, rect, imageSlot, vline,
-  fitFontSize, estTextHeight,
+  fitFontSize, fitTextBlock, estTextHeight,
   pv, pvRect, pvCircle, pvBars, pvSlot,
   backgroundImageSlot,
 } from '../helpers.js';
@@ -61,9 +61,12 @@ function divider(o, x, y, h, palette) {
  * hero = whether this is the lead/hero stat (accent colour, larger text).
  */
 function statBlock(o, b, palette, fonts, { x, y, w, figureMax, figureBudget, captionBudget, accent = false }) {
-  const figSize = fitFontSize(b.figure, { width: w, height: figureBudget, maxSize: figureMax, minSize: 120 });
-  // Thin accent underline below the figure
-  const figH = Math.round(estTextHeight(b.figure, figSize, w, 1.04));
+  // Floor at 16 so a worst-case long figure string can shrink enough to stay in
+  // its cell (stressed content sets 'figure' to a long label, not a short number).
+  const fig = fitTextBlock(b.figure, { width: w, height: figureBudget, maxSize: figureMax, minSize: 16, lineHeight: 1.04 });
+  const figSize = fig.fontSize;
+  // Thin accent underline below the figure — placed at the ACTUAL wrapped height.
+  const figH = Math.round(fig.height);
   o.push({
     ...textbox({
       text: b.figure, x, y, w, fontSize: figSize, fontFamily: fonts.head,
@@ -80,7 +83,7 @@ function statBlock(o, b, palette, fonts, { x, y, w, figureMax, figureBudget, cap
     fill: palette.accent, rx: 2, opacity: accent ? 0.18 : 0.12, layerRole: 'decor'
   }));
   const capY = ruleY + (accent ? 24 : 16);
-  const capSize = fitFontSize(b.caption, { width: w, height: captionBudget, maxSize: accent ? 46 : 40, minSize: 20 });
+  const capSize = fitFontSize(b.caption, { width: w, height: captionBudget, maxSize: accent ? 46 : 40, minSize: 16 });
   o.push({
     ...textbox({
       text: b.caption, x, y: capY, w, fontSize: capSize, fontFamily: fonts.body,

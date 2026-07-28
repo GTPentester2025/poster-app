@@ -100,7 +100,7 @@ function iconCell(o, b, palette, fonts, { x, y, w, h }) {
   cy += estTextHeight(b.label, labSize, w, 1.12) + 12;
 
   const descH = Math.max(120, y + h - cy);
-  const descSize = fitFontSize(b.text, { width: w, height: descH, maxSize: 42, minSize: 38, lineHeight: 1.24 });
+  const descSize = fitFontSize(b.text, { width: w, height: descH, maxSize: 42, minSize: 16, lineHeight: 1.24 });
   o.push({
     ...textbox({
       text: b.text, x, y: cy, w, fontSize: descSize,

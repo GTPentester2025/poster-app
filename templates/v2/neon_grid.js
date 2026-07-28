@@ -34,7 +34,7 @@ import {
 function figureSize(text, colW, desired) {
   let size = desired;
   const maxW = colW * 0.92;
-  while (size > 90 && estTextWidth(String(text), size) > maxW) size -= 4;
+  while (size > 16 && estTextWidth(String(text), size) > maxW) size -= 4;
   return size;
 }
 

@@ -73,7 +73,11 @@ function glassCard(o, b, palette, fonts, { x, y, w, h, fill = DARK_PANEL }) {
   const padX = 48;
   const innerW = w - padX * 2;
   const headTop = y + 44;
-  const headSize = fitFontSize(b.heading, { width: innerW, height: 136, maxSize: 68, minSize: 40 });
+  // Heading gets up to ~40% of the card interior; body takes the rest. Both
+  // shrink to a 16px floor so worst-case text stays inside the card.
+  const interiorH = h - 88;
+  const headBudget = Math.min(136, Math.round(interiorH * 0.42));
+  const headSize = fitFontSize(b.heading, { width: innerW, height: headBudget, maxSize: 68, minSize: 16 });
   o.push({
     ...textbox({
       text: b.heading, x: x + padX, y: headTop, w: innerW, fontSize: headSize,
@@ -85,7 +89,7 @@ function glassCard(o, b, palette, fonts, { x, y, w, h, fill = DARK_PANEL }) {
 
   const bodyTop = headTop + estTextHeight(b.heading, headSize, innerW, 1.04) + 24;
   const bodyH = y + h - bodyTop - 44;
-  const bodySize = fitFontSize(b.text, { width: innerW, height: bodyH, maxSize: 48, minSize: 38 });
+  const bodySize = fitFontSize(b.text, { width: innerW, height: bodyH, maxSize: 48, minSize: 16 });
   o.push({
     ...textbox({
       text: b.text, x: x + padX, y: bodyTop, w: innerW, fontSize: bodySize,
@@ -109,8 +113,8 @@ function ctaBar(o, text, palette, fonts, W, y) {
   }));
 }
 
-function headlineZone(o, content, palette, fonts, { x, y, w, maxSize, align = 'left' }) {
-  const headSize = fitFontSize(content.headline, { width: w, height: 300, maxSize, minSize: 80 });
+function headlineZone(o, content, palette, fonts, { x, y, w, maxSize, align = 'left', minSize = 80, headMaxH = 300, subMaxH = 120 }) {
+  const headSize = fitFontSize(content.headline, { width: w, height: headMaxH, maxSize, minSize });
   o.push(textbox({
     text: content.headline, x, y, w, fontSize: headSize, lineHeight: 1.04,
     fontFamily: fonts.head, fontWeight: '900', fill: DARK_INK, align,
@@ -118,7 +122,7 @@ function headlineZone(o, content, palette, fonts, { x, y, w, maxSize, align = 'l
   }));
   let cursor = y + estTextHeight(content.headline, headSize, w, 1.04) + 20;
   if (content.subheadline) {
-    const subSize = fitFontSize(content.subheadline, { width: w, height: 120, maxSize: 40, minSize: 16, lineHeight: 1.4 });
+    const subSize = fitFontSize(content.subheadline, { width: w, height: subMaxH, maxSize: 40, minSize: 16, lineHeight: 1.4 });
     o.push(textbox({
       text: content.subheadline, x, y: cursor, w, fontSize: subSize,
       fontFamily: fonts.body, fontWeight: '600', fill: DARK_INK_DIM, align,
@@ -181,7 +185,7 @@ function buildPortrait(content, palette, fonts) {
       const padX = 48;
       const textW = slotX - x - padX - 28;
       const headTop = y + 44;
-      const headSize = fitFontSize(b.heading, { width: textW, height: 136, maxSize: 68, minSize: 40 });
+      const headSize = fitFontSize(b.heading, { width: textW, height: 136, maxSize: 68, minSize: 16 });
       o.push({
         ...textbox({
           text: b.heading, x: x + padX, y: headTop, w: textW, fontSize: headSize,
@@ -192,7 +196,7 @@ function buildPortrait(content, palette, fonts) {
       });
       const bodyTop = headTop + estTextHeight(b.heading, headSize, textW, 1.04) + 24;
       const bodyH = y + cardH - bodyTop - 44;
-      const bodySize = fitFontSize(b.text, { width: textW, height: bodyH, maxSize: 48, minSize: 38 });
+      const bodySize = fitFontSize(b.text, { width: textW, height: bodyH, maxSize: 48, minSize: 16 });
       o.push({
         ...textbox({
           text: b.text, x: x + padX, y: bodyTop, w: textW, fontSize: bodySize,
@@ -240,7 +244,9 @@ function buildLandscape(content, palette, fonts) {
 
   // left band: headline + hero card with the image slot
   const leftW = 768;
-  headlineZone(o, content, palette, fonts, { x: 80, y: 88, w: 408, maxSize: 96, align: 'left' });
+  // Narrow left column (408px) forces worst-case headlines to wrap tall — cap the
+  // headline band so headline + subheadline stay above the hero card (heroY 556).
+  headlineZone(o, content, palette, fonts, { x: 80, y: 88, w: 408, maxSize: 96, align: 'left', minSize: 44, headMaxH: 330, subMaxH: 110 });
 
   // second foreground image slot — top-left band, right of the headline
   o.push(imageSlot({
@@ -262,7 +268,7 @@ function buildLandscape(content, palette, fonts) {
     const slotX = heroX + Math.round((heroW - slot) / 2);
     const slotY = heroY + heroH - slot - 44;
     const headTop = heroY + 44;
-    const headSize = fitFontSize(hero.heading, { width: innerW, height: 154, maxSize: 68, minSize: 40 });
+    const headSize = fitFontSize(hero.heading, { width: innerW, height: 154, maxSize: 68, minSize: 16 });
     o.push({
       ...textbox({
         text: hero.heading, x: heroX + padX, y: headTop, w: innerW, fontSize: headSize,
@@ -273,7 +279,7 @@ function buildLandscape(content, palette, fonts) {
     });
     const bodyTop = headTop + estTextHeight(hero.heading, headSize, innerW, 1.04) + 22;
     const bodyH = slotY - bodyTop - 28;
-    const bodySize = fitFontSize(hero.text, { width: innerW, height: bodyH, maxSize: 48, minSize: 38 });
+    const bodySize = fitFontSize(hero.text, { width: innerW, height: bodyH, maxSize: 48, minSize: 16 });
     o.push({
       ...textbox({
         text: hero.text, x: heroX + padX, y: bodyTop, w: innerW, fontSize: bodySize,

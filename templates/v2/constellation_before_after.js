@@ -48,7 +48,7 @@ const CHIP_H = 52;     // label chip zone height
 const CARD_RX = 24;    // card corner radius
 const ARROW_LEN = 60;  // horizontal arrow length in portrait
 const ARROW_HALF = 22; // arrowhead half-height
-const MIN_MSG_SIZE = 38; // message fontSize floor
+const MIN_MSG_SIZE = 24; // message fontSize floor (worst-case; typical short content stays large)
 
 // Portrait zone heights
 const HEADER_H_P = 280;   // headline + subheadline
@@ -103,8 +103,8 @@ function headlineZone(o, content, palette, fonts, { x, y, w, h }) {
   // Headline — verbatim, fontSize ≥ 80
   const headBudget = h - (cursor - y) - 32;
   const { fontSize: headSize, height: headH } = fitTextBlock(content.headline, {
-    width: w, height: Math.max(headBudget, 80 * 1.1),
-    maxSize: 108, minSize: 80, lineHeight: 1.06
+    width: w, height: Math.max(headBudget, 44 * 1.1),
+    maxSize: 108, minSize: 44, lineHeight: 1.06
   });
   o.push(textbox({
     text: content.headline, x, y: cursor, w,

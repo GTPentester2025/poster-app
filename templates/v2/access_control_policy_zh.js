@@ -66,7 +66,7 @@ function headerBand(o, content, palette, fonts, W, y, h) {
   o.push(rect({ x: 0, y, w: 8, h, fill: DARK_BASE, opacity: 0.35, layerRole: 'decor' }));
   // headline text
   const { fontSize: headSize } = fitTextBlock(content.headline, {
-    width: W - 160, height: h - 32, maxSize: 90, minSize: 80, lineHeight: 1.0
+    width: W - 160, height: h - 32, maxSize: 90, minSize: 28, lineHeight: 1.0
   });
   o.push(textbox({
     text: content.headline,

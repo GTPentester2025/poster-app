@@ -95,8 +95,8 @@ function tipCard(o, b, palette, fonts, { x, y, w, h }) {
 
   // message text (fieldRef:'text')
   const { fontSize: msgSize, height: msgH } = fitTextBlock(b.text, {
-    width: textW, height: Math.max(textBudget, 38 * 1.4),
-    maxSize: 48, minSize: 38, lineHeight: 1.28
+    width: textW, height: Math.max(textBudget, 16 * 1.28),
+    maxSize: 48, minSize: 16, lineHeight: 1.28
   });
   o.push({
     ...textbox({

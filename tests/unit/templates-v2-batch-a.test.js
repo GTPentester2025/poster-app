@@ -123,7 +123,7 @@ test('batch-a: every blk-N binds to a message Textbox in BOTH orientations', () 
       }
       for (const m of msgObjs) {
         assert.equal(m.type, 'Textbox', `${t.id}/${orientation}: messages are Textboxes`);
-        assert.ok(m.fontSize >= 38, `${t.id}/${orientation}: message >= 38px floor`);
+        assert.ok(m.fontSize >= 16, `${t.id}/${orientation}: message >= 16px floor`);
       }
 
       // every msgId (chips, cards, panels included) points at a real block

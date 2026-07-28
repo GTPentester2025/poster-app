@@ -11,7 +11,7 @@
 
 import {
   textbox, rect, imageSlot, hline,
-  fitFontSize, estTextHeight,
+  fitFontSize, fitTextBlock, estTextHeight,
   pv, pvRect, pvCircle, pvBars, pvSlot,
   backgroundImageSlot,
 } from '../helpers.js';
@@ -64,7 +64,7 @@ function headlineZone(o, content, palette, fonts, { x, y, w, maxSize, headMaxH =
  * (fieldRef 'caption') below it. Figures are short — sized by an EXPLICIT
  * fontSize, not fitFontSize word-wrap. hero = the lit lead figure.
  */
-function horizonStat(o, b, palette, fonts, { x, w, horizonY, figSize, colFactor, hero = false }) {
+function horizonStat(o, b, palette, fonts, { x, w, horizonY, figSize, colFactor, ctaY, hero = false }) {
   const cx = x + w / 2;
 
   // Accent column rising behind the figure to the horizon line
@@ -80,11 +80,15 @@ function horizonStat(o, b, palette, fonts, { x, w, horizonY, figSize, colFactor,
     fill: palette.accent, rx: 2, opacity: 0.18, layerRole: 'decor'
   }));
 
-  // Giant figure above the line (explicit size — figures are short strings)
-  const figH = Math.round(figSize * 1.04);
+  // Giant figure above the line. Figures are normally short, but a worst-case
+  // long string must shrink to fit its column width — floor at 16 so it stops
+  // spilling off the top / into neighbouring columns, and anchor by its ACTUAL
+  // wrapped height (not the desired size) so it always sits just above the line.
+  const figFit = fitTextBlock(b.figure, { width: w, height: figSize * 1.04, maxSize: figSize, minSize: 16, lineHeight: 1.04 });
+  const figH = Math.round(figFit.height);
   o.push({
     ...textbox({
-      text: b.figure, x, y: horizonY - colH - figH - 16, w, fontSize: figSize,
+      text: b.figure, x, y: horizonY - colH - figH - 16, w, fontSize: figFit.fontSize,
       fontFamily: fonts.head, fontWeight: '900',
       fill: hero ? palette.accent : DARK_INK, align: 'center',
       lineHeight: 1.04, layerRole: 'message', msgId: b.id, bgRef: DARK_BASE
@@ -92,8 +96,10 @@ function horizonStat(o, b, palette, fonts, { x, w, horizonY, figSize, colFactor,
     fieldRef: 'figure'
   });
 
-  // Caption below the horizon line
-  const capSize = fitFontSize(b.caption, { width: w - 24, height: 200, maxSize: hero ? 44 : 40, minSize: 38 });
+  // Caption below the horizon line — clamp its span to sit above the CTA band
+  // and floor the font at 16 so a long caption stays inside that budget.
+  const capBudget = Math.max(60, ctaY - (horizonY + 28) - 12);
+  const capSize = fitFontSize(b.caption, { width: w - 24, height: capBudget, maxSize: hero ? 44 : 40, minSize: 16 });
   o.push({
     ...textbox({
       text: b.caption, x: x + 12, y: horizonY + 28, w: w - 24, fontSize: capSize,
@@ -149,7 +155,7 @@ function buildPortrait(content, palette, fonts) {
       o.push(...softGlow({ x: Math.round(x + w / 2), y: horizonY - 280, r: 340, color: palette.primary, intensity: 1 }));
     }
     horizonStat(o, b, palette, fonts, {
-      x, w, horizonY,
+      x, w, horizonY, ctaY: 1856,
       figSize: hero ? 196 : 136, colFactor: COL_FACTORS[i % COL_FACTORS.length], hero
     });
   });
@@ -201,7 +207,7 @@ function buildLandscape(content, palette, fonts) {
       o.push(...softGlow({ x: Math.round(x + w / 2), y: horizonY - 250, r: 310, color: palette.primary, intensity: 1 }));
     }
     horizonStat(o, b, palette, fonts, {
-      x, w, horizonY,
+      x, w, horizonY, ctaY: 1270,
       figSize: hero ? 248 : 156, colFactor: COL_FACTORS[i % COL_FACTORS.length], hero
     });
   });

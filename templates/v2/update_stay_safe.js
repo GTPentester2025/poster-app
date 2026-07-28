@@ -35,7 +35,7 @@ function ctaBar(o, text, palette, fonts, W, y, h = 152) {
 }
 
 function headlineZone(o, content, palette, fonts, { x, y, w, maxSize }) {
-  const headSize = fitFontSize(content.headline, { width: w, height: 340, maxSize, minSize: 80 });
+  const headSize = fitFontSize(content.headline, { width: w, height: 340, maxSize, minSize: 56 });
   o.push(textbox({
     text: content.headline, x, y, w, fontSize: headSize,
     fontFamily: fonts.head, fontWeight: '900', fill: DARK_INK, lineHeight: 1.0,
@@ -43,7 +43,7 @@ function headlineZone(o, content, palette, fonts, { x, y, w, maxSize }) {
   }));
   let cursor = y + estTextHeight(content.headline, headSize, w, 1.0) + 20;
   if (content.subheadline) {
-    const subSize = fitFontSize(content.subheadline, { width: w, height: 140, maxSize: 42, minSize: 28, lineHeight: 1.26 });
+    const subSize = fitFontSize(content.subheadline, { width: w, height: 96, maxSize: 42, minSize: 20, lineHeight: 1.26 });
     o.push(textbox({
       text: content.subheadline, x, y: cursor, w, fontSize: subSize,
       fontFamily: fonts.head, fontWeight: '800', fill: palette.primary, lineHeight: 1.26,
@@ -68,7 +68,7 @@ function checklistRow(o, b, palette, fonts, { x, y, w, h }) {
 
   const textX = cx + iconR + 32;
   const textW = x + w - textX;
-  const size = fitFontSize(b.text, { width: textW, height: h - 8, maxSize: 46, minSize: 38, lineHeight: 1.24 });
+  const size = fitFontSize(b.text, { width: textW, height: h - 8, maxSize: 46, minSize: 16, lineHeight: 1.24 });
   const th = estTextHeight(b.text, size, textW, 1.24);
   o.push({
     ...textbox({

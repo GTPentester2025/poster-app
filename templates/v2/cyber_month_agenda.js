@@ -116,24 +116,15 @@ function headlineBand(o, content, palette, fonts, { x, y, w, h }) {
   // Headline text
   const textX = x + PAD;
   const textW = w - PAD - 48;
-  const { fontSize: headSize } = fitTextBlock(content.headline, {
-    width: textW, height: h - 32,
-    maxSize: 100, minSize: 80, lineHeight: 1.0
-  });
-  const headH = estTextHeight(content.headline, headSize, textW, 1.0);
-  o.push(textbox({
-    text: content.headline,
-    x: textX, y: y + Math.round((h - headH) / 2),
-    w: textW, fontSize: headSize,
-    fontFamily: fonts.head, fontWeight: '900',
-    fill: DARK_BASE, lineHeight: 1.0, align: 'left',
-    layerRole: 'headline', bgRef: palette.primary
-  }));
 
-  // Optional subheadline strip (small label above headline)
+  // Optional subheadline strip (small label above headline). Reserve its space
+  // at the top of the band so the headline never collides with it.
+  let subReserve = 0;
   if (content.subheadline) {
     const subY = y + 10;
-    const subSize = fitFontSize(content.subheadline, { width: textW, height: 40, maxSize: 30, minSize: 22, lineHeight: 1.1 });
+    const { fontSize: subSize, height: subH } = fitTextBlock(content.subheadline, {
+      width: textW, height: 60, maxSize: 30, minSize: 18, lineHeight: 1.1
+    });
     o.push(textbox({
       text: content.subheadline,
       x: textX, y: subY,
@@ -142,7 +133,22 @@ function headlineBand(o, content, palette, fonts, { x, y, w, h }) {
       fill: DARK_BASE, lineHeight: 1.1, align: 'left',
       layerRole: 'subheadline', bgRef: palette.primary
     }));
+    subReserve = 10 + Math.round(subH) + 10;
   }
+
+  const headBudget = h - 24 - subReserve;
+  const { fontSize: headSize, height: headH } = fitTextBlock(content.headline, {
+    width: textW, height: headBudget,
+    maxSize: 100, minSize: 30, lineHeight: 1.0
+  });
+  o.push(textbox({
+    text: content.headline,
+    x: textX, y: y + subReserve + Math.max(0, Math.round((headBudget - headH) / 2)),
+    w: textW, fontSize: headSize,
+    fontFamily: fonts.head, fontWeight: '900',
+    fill: DARK_BASE, lineHeight: 1.0, align: 'left',
+    layerRole: 'headline', bgRef: palette.primary
+  }));
 }
 
 // ── agenda row (one block = label chip + message text) ───────────────────────

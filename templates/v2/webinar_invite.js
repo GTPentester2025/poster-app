@@ -143,8 +143,8 @@ function headlineZone(o, content, palette, fonts, { x, y, w, h }) {
   const headTop = y + Math.round(h * 0.12) + kickerH + 16;
   const headAvailH = h - (headTop - y) - 48;
   const { fontSize: headSize } = fitTextBlock(content.headline, {
-    width: w - PAD * 2, height: Math.max(headAvailH, 80 * 1.1),
-    maxSize: 120, minSize: 80, lineHeight: 1.02
+    width: w - PAD * 2, height: Math.max(headAvailH, 44 * 1.02),
+    maxSize: 120, minSize: 44, lineHeight: 1.02
   });
   const headH = estTextHeight(content.headline, headSize, w - PAD * 2, 1.02);
   o.push(textbox({

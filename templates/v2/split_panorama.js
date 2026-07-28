@@ -150,9 +150,20 @@ function buildPortrait(content, palette, fonts) {
     cursor += subH + 16;
   }
 
-  // panoramic hero image slot
+  // step grid geometry (computed first so the hero can size to leave card room)
+  const blocks = content.blocks || [];
+  const gap = 32;
+  const cols = Math.min(2, Math.max(blocks.length, 1));
+  const colW = cols === 2 ? Math.round((innerW - gap) / 2) : innerW;
+  const rows = Math.ceil(Math.max(blocks.length, 1) / cols);
+  const ctaH = 100;
+  const cardMinH = 224;
+  const cardsNeed = rows * cardMinH + gap * (rows - 1);
+
+  // panoramic hero image slot — height adapts so the card grid + CTA always fit
   const heroY = cursor + 16;
-  const heroH = 700;
+  const heroMax = H - heroY - 40 - cardsNeed - ctaH - 48;
+  const heroH = Math.max(260, Math.min(700, heroMax));
   o.push(imageSlot({ slotId: 'slot-1', x: margin, y: heroY, w: innerW, h: heroH, styleHint: HERO_HINT, stroke: palette.primary }));
 
   // dark gradient overlay on hero bottom so cards blend in
@@ -162,16 +173,10 @@ function buildPortrait(content, palette, fonts) {
     opacity: 0.55, layerRole: 'scrim'
   }));
 
-  // step cards in a 2-col grid
-  const blocks = content.blocks || [];
+  // step cards in a 2-col grid — card height derived from real available space
   const cardsTop = heroY + heroH + 40;
-  const gap = 32;
-  const cols = Math.min(2, blocks.length);
-  const colW = cols === 2 ? Math.round((innerW - gap) / 2) : innerW;
-  const ctaH = 100;
   const availH = H - cardsTop - ctaH - 48;
-  const rows = Math.ceil(blocks.length / cols);
-  const cardH = Math.max(240, Math.round((availH - gap * (rows - 1)) / rows));
+  const cardH = Math.max(180, Math.round((availH - gap * (rows - 1)) / rows));
 
   blocks.forEach((b, i) => {
     const col = i % cols;

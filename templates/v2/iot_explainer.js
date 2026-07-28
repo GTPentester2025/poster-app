@@ -97,14 +97,14 @@ function qaCard(o, b, palette, fonts, { x, y, w, budgetH }) {
   // Question line — yellow, bold; cap at 38% of inner budget
   const qBudget = Math.max(48, Math.round(innerBudget * 0.38));
   const qSize = fitFontSize(b.question, {
-    width: textW, height: qBudget, maxSize: 46, minSize: 38, lineHeight: 1.25
+    width: textW, height: qBudget, maxSize: 46, minSize: 16, lineHeight: 1.25
   });
   const qH = Math.round(estTextHeight(b.question, qSize, textW, 1.25));
 
   // Answer body: whatever remains after question + separator gap
   const aBudget = Math.max(48, innerBudget - qH - A_PAD_V - 10);
   const aSize = fitFontSize(b.answer, {
-    width: textW, height: aBudget, maxSize: 44, minSize: 38, lineHeight: 1.3
+    width: textW, height: aBudget, maxSize: 44, minSize: 16, lineHeight: 1.3
   });
   // Cap aH to aBudget so the card never exceeds its zone allocation even at the 38px floor
   const aH = Math.min(Math.round(estTextHeight(b.answer, aSize, textW, 1.3)), aBudget);

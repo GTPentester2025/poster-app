@@ -63,7 +63,7 @@ function qaPair(o, b, palette, fonts, { areaX, areaW, y, budgetH }) {
 
   // question — right aligned, brand primary
   const qX = areaX + areaW - bubW;
-  const qSize = fitFontSize(b.question, { width: textW, height: Math.max(90, budgetH * 0.38), maxSize: 44, minSize: 38 });
+  const qSize = fitFontSize(b.question, { width: textW, height: Math.max(90, budgetH * 0.38) - BUBBLE_PAD_V * 2, maxSize: 44, minSize: 16, lineHeight: 1.38 });
   const qBubH = Math.round(estTextHeight(b.question, qSize, textW, 1.38)) + BUBBLE_PAD_V * 2;
   // question bubble with soft shadow feel via a slightly darker behind-rect
   o.push(rect({ x: qX + 4, y: y + 4, w: bubW, h: qBubH, fill: palette.dark, rx: BUBBLE_R,
@@ -87,7 +87,7 @@ function qaPair(o, b, palette, fonts, { areaX, areaW, y, budgetH }) {
   // answer — left aligned, near-white with accent border bar
   const aY = y + qBubH + GAP;
   const aSize = fitFontSize(b.answer, {
-    width: textW, height: Math.max(84, budgetH - qBubH - GAP - 24), maxSize: 42, minSize: 38
+    width: textW, height: Math.max(84, budgetH - qBubH - GAP - 24) - BUBBLE_PAD_V * 2, maxSize: 42, minSize: 16, lineHeight: 1.38
   });
   const aBubH = Math.round(estTextHeight(b.answer, aSize, textW, 1.38)) + BUBBLE_PAD_V * 2;
   o.push(rect({ x: areaX + 4, y: aY + 4, w: bubW, h: aBubH, fill: palette.dark, rx: BUBBLE_R,
@@ -136,10 +136,12 @@ function buildPortrait(content, palette, fonts) {
   const top = 540;
   const bottom = 1832;
   const pairH = (bottom - top) / Math.max(blocks.length, 1);
-  blocks.forEach((b, i) => {
-    qaPair(o, b, palette, fonts, {
-      areaX: 96, areaW: W - 192, y: Math.round(top + i * pairH), budgetH: pairH - 24
+  let pairY = top;
+  blocks.forEach((b) => {
+    const pairBottom = qaPair(o, b, palette, fonts, {
+      areaX: 96, areaW: W - 192, y: Math.round(pairY), budgetH: pairH - 24
     });
+    pairY = pairBottom + 24;
   });
 
   ctaBar(o, content.callToAction, palette, fonts, W, 1848);
@@ -173,10 +175,12 @@ function buildLandscape(content, palette, fonts) {
   const bottom = 1232;
   for (const col of cols) {
     const pairH = (bottom - top) / Math.max(col.blocks.length, 1);
-    col.blocks.forEach((b, i) => {
-      qaPair(o, b, palette, fonts, {
-        areaX: col.x, areaW: 904, y: Math.round(top + i * pairH), budgetH: pairH - 24
+    let pairY = top;
+    col.blocks.forEach((b) => {
+      const pairBottom = qaPair(o, b, palette, fonts, {
+        areaX: col.x, areaW: 904, y: Math.round(pairY), budgetH: pairH - 24
       });
+      pairY = pairBottom + 24;
     });
   }
 

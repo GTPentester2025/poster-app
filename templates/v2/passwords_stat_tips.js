@@ -345,7 +345,7 @@ function buildLandscape(content, palette, fonts) {
 
     // Figure
     const figBudget = rowH - innerPad * 2;
-    const figSize = fitFontSize(b.figure, { width: figW, height: figBudget, maxSize: accent ? 120 : 96, minSize: 80, lineHeight: 1.0 });
+    const figSize = fitFontSize(b.figure, { width: figW, height: figBudget, maxSize: accent ? 120 : 96, minSize: 56, lineHeight: 1.0 });
     const figH = estTextHeight(b.figure, figSize, figW, 1.0);
     o.push({
       ...textbox({

@@ -91,7 +91,7 @@ function threadPair(o, b, palette, fonts, { colX, colW, y, budgetH }) {
 
   // question — right-aligned, primary fill, avatar disc on right
   const qX = colX + colW - gutter - bubW;
-  const qSize = fitFontSize(b.question, { width: textW, height: Math.max(50, budgetH * 0.42), maxSize: 44, minSize: 38, lineHeight: 1.1 });
+  const qSize = fitFontSize(b.question, { width: textW, height: Math.max(50, budgetH * 0.42), maxSize: 44, minSize: 16, lineHeight: 1.1 });
   // Use actual text height (not budgetH*0.48 cap) so the bubble grows to contain
   // the text without overflow — pairs may exceed pairH under very long input but
   // the avail measurement will correctly account for the actual bubble height.
@@ -116,7 +116,7 @@ function threadPair(o, b, palette, fonts, { colX, colW, y, budgetH }) {
   // answer — left-aligned, elevated white surface, accent left spine + hairline stroke
   const aY = y + qBubH + GAP;
   const aX = colX + gutter;
-  const aSize = fitFontSize(b.answer, { width: textW, height: Math.max(50, budgetH - qBubH - GAP - pad), maxSize: 42, minSize: 38, lineHeight: 1.1 });
+  const aSize = fitFontSize(b.answer, { width: textW, height: Math.max(50, budgetH - qBubH - GAP - pad), maxSize: 42, minSize: 16, lineHeight: 1.1 });
   const aBubH = Math.round(estTextHeight(b.answer, aSize, textW, 1.1)) + pad * 2;
   o.push(rect({
     x: aX, y: aY, w: bubW, h: aBubH,
@@ -177,7 +177,7 @@ function takeawayCard(o, lastBlock, palette, fonts, { x, y, w, h }) {
   const quoteY = y + 192;
   const quoteW = w - pad * 2;
   const quoteH = h - (quoteY - y) - 48;
-  const size = fitFontSize(lastBlock.answer, { width: quoteW, height: quoteH, maxSize: 52, minSize: 38 });
+  const size = fitFontSize(lastBlock.answer, { width: quoteW, height: quoteH, maxSize: 52, minSize: 16 });
   o.push({
     ...textbox({
       text: lastBlock.answer, x: x + pad, y: quoteY, w: quoteW, fontSize: size,
@@ -226,11 +226,18 @@ function buildPortrait(content, palette, fonts) {
   // soft glow behind thread
   o.push(rect({ x: colX, y: top, w: 24, h: bottom - top, fill: palette.primary, rx: 12, opacity: 0.05, layerRole: 'decor' }));
 
-  const pairH = (bottom - top) / Math.max(blocks.length, 1);
+  // Position each pair at the running cursor and advance by its ACTUAL bottom,
+  // budgeting the remaining space across the remaining pairs so the stack never
+  // spills past `bottom` even when a pair's wrapped text runs tall.
+  let cursor = top;
+  const pairGap = 24;
   blocks.forEach((b, i) => {
-    threadPair(o, b, palette, fonts, {
-      colX, colW, y: Math.round(top + i * pairH), budgetH: pairH - 24
+    const remaining = blocks.length - i;
+    const budgetH = (bottom - cursor - pairGap * (remaining - 1)) / remaining - pairGap;
+    const pairBottom = threadPair(o, b, palette, fonts, {
+      colX, colW, y: Math.round(cursor), budgetH
     });
+    cursor = pairBottom + pairGap;
   });
 
   // pinned takeaway card — right third, padded from column + from right edge
@@ -276,8 +283,10 @@ function buildLandscape(content, palette, fonts) {
   // 5 pairs use the tighter 1260 budget (scroll CTA further up is not needed
   // since the overflow test only exercises the default 4-block count).
   const bottom = blocks.length >= 5 ? 1260 : 1268;
-  const pairH = (bottom - top) / Math.max(blocks.length, 1);
-  const budgetH = pairH - 20;
+  const pairGap = 20;
+  const n = Math.max(blocks.length, 1);
+  // First pair's budget under the running-cursor scheme (cursor≈top, remaining=n).
+  const budgetH = (bottom - top - pairGap * (n - 1)) / n - pairGap;
   // Replicate pad logic from threadPair so we know where the first Q textbox starts.
   const firstPad = budgetH <= 150 ? 10 : budgetH <= 200 ? 14 : BUBBLE_PAD;
   // Headline height estimate (maxSize=96, lineHeight=1.06, width=920).
@@ -297,10 +306,14 @@ function buildLandscape(content, palette, fonts) {
   }));
   o.push(rect({ x: colX, y: top, w: 24, h: bottom - top, fill: palette.primary, rx: 12, opacity: 0.05, layerRole: 'decor' }));
 
+  let cursor = top;
   blocks.forEach((b, i) => {
-    threadPair(o, b, palette, fonts, {
-      colX, colW, y: Math.round(top + i * pairH), budgetH: pairH - 20
+    const remaining = blocks.length - i;
+    const bH = (bottom - cursor - pairGap * (remaining - 1)) / remaining - pairGap;
+    const pairBottom = threadPair(o, b, palette, fonts, {
+      colX, colW, y: Math.round(cursor), budgetH: bH
     });
+    cursor = pairBottom + pairGap;
   });
 
   const last = blocks[blocks.length - 1];

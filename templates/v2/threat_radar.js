@@ -157,7 +157,7 @@ function blipCard(o, b, n, palette, fonts, { cardX, cardY, cardW, cardH, anchorX
   const textX = cardX + 44;
   const bodyY = cardY + 106;
   const bodyW = cardW - 88;
-  const size = fitFontSize(b.text, { width: bodyW, height: cardH - (bodyY - cardY) - 28, maxSize: 44, minSize: 38 });
+  const size = fitFontSize(b.text, { width: bodyW, height: cardH - (bodyY - cardY) - 28, maxSize: 44, minSize: 16 });
   o.push({
     ...textbox({
       text: b.text, x: textX, y: bodyY, w: bodyW, fontSize: size,

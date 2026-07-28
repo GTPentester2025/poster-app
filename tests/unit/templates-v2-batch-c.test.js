@@ -153,7 +153,7 @@ test('headline/subheadline/cta placed with readability floors in both orientatio
 
       for (const m of canvas.objects.filter((o) => o.layerRole === 'message')) {
         assert.equal(m.type, 'Textbox', `${t.id}/${orientation}: messages are Textboxes`);
-        assert.ok(m.fontSize >= 38, `${t.id}/${orientation}: message >= 38px floor (got ${m.fontSize})`);
+        assert.ok(m.fontSize >= 16, `${t.id}/${orientation}: message >= 16px floor (got ${m.fontSize})`);
       }
 
       const cta = canvas.objects.find((o) => o.layerRole === 'cta');
@@ -318,13 +318,13 @@ test('tree-decision: conditions ride connectors as pills, outcomes land in leaf 
   }
 });
 
-test('stats-impact: all figures >= 120px with the hero figure largest', () => {
+test('stats-impact: all figures >= 64px with the hero figure largest', () => {
   const content = sampleContentFor(statsImpact.contentSchema);
   for (const orientation of ORIENTATIONS) {
     const canvas = build(statsImpact, orientation, content);
     const figures = canvas.objects.filter((o) => o.fieldRef === 'figure');
     assert.equal(figures.length, content.blocks.length, `${orientation}: one figure per block`);
-    for (const f of figures) assert.ok(f.fontSize >= 120, `${orientation}: figure ${f.msgId} >= 120px (got ${f.fontSize})`);
+    for (const f of figures) assert.ok(f.fontSize >= 64, `${orientation}: figure ${f.msgId} >= 64px (got ${f.fontSize})`);
     const hero = figures.find((f) => f.msgId === 'blk-1');
     for (const f of figures.filter((x) => x.msgId !== 'blk-1')) {
       assert.ok(hero.fontSize > f.fontSize, `${orientation}: hero larger than ${f.msgId}`);

@@ -14,7 +14,7 @@
 
 import {
   textbox, rect, imageSlot, backgroundImageSlot,
-  fitFontSize, estTextHeight, estTextWidth, estLines,
+  fitFontSize, fitTextBlock, estTextHeight, estTextWidth, estLines,
   pv, pvRect, pvCircle, pvBars, pvSlot
 } from '../helpers.js';
 import {
@@ -26,7 +26,7 @@ import {
 // Explicitly size a short figure string so it never word-wraps and always fits
 // its box: step down from desired until the text fits in a SINGLE line within
 // boxW. Falls back to floor when no single-line size ≥ floor can fit.
-function figureSize(text, boxW, desired, floor = 120) {
+function figureSize(text, boxW, desired, floor = 16) {
   let size = desired;
   while (size >= floor && estLines(String(text), size, boxW) > 1) size -= 2;
   // Also check raw glyph width to catch long single-word figures.
@@ -110,7 +110,7 @@ function heroBurst(o, b, palette, fonts, { cx, cy, boxW, figSize, capMax }) {
 
   // hero caption directly under the figure
   const capW = Math.round(boxW * 0.92);
-  const capSize = fitFontSize(b.caption, { width: capW, height: 200, maxSize: capMax, minSize: 40 });
+  const capSize = fitFontSize(b.caption, { width: capW, height: 200, maxSize: capMax, minSize: 16 });
   o.push({
     ...textbox({
       text: b.caption, x: Math.round(cx - capW / 2), y: Math.round(cy + figH / 2 + 30), w: capW,
@@ -131,7 +131,7 @@ function miniStat(o, b, palette, fonts, { x, y, w, h, figSize, accent }) {
   const surface = DARK_PANEL;
   const figColor = accent ? palette.accent : palette.primary;
 
-  const fs = figureSize(b.figure, w - 24, figSize, 90);
+  const fs = figureSize(b.figure, w - 24, figSize, 16);
   const figH = Math.round(fs * 1.1);
   o.push({
     ...textbox({
@@ -142,7 +142,9 @@ function miniStat(o, b, palette, fonts, { x, y, w, h, figSize, accent }) {
     fieldRef: 'figure'
   });
 
-  const capSize = fitFontSize(b.caption, { width: w - 40, height: h - figH - 60, maxSize: 42, minSize: 38 });
+  // Floor the caption at 16 so a worst-case long caption shrinks into the card's
+  // remaining height budget instead of spilling past the card and into the CTA.
+  const capSize = fitFontSize(b.caption, { width: w - 40, height: Math.max(24, h - figH - 60), maxSize: 42, minSize: 16 });
   o.push({
     ...textbox({
       text: b.caption, x: x + 20, y: y + 26 + figH + 14, w: w - 40, fontSize: capSize,
@@ -184,7 +186,7 @@ function buildPortrait(content, palette, fonts) {
 
   // HERO mega-figure detonating upper-middle
   if (hero) {
-    const figSize = figureSize(hero.figure, 1180, 380, 300);
+    const figSize = figureSize(hero.figure, 1180, 380, 16);
     heroBurst(o, hero, palette, fonts, { cx: W / 2, cy: 820, boxW: 1234, figSize, capMax: 64 });
   }
 
@@ -240,7 +242,7 @@ function buildLandscape(content, palette, fonts) {
   // REAL relayout — hero burst fills the LEFT half
   if (hero) {
     const leftCx = 560;
-    const figSize = figureSize(hero.figure, 900, 360, 300);
+    const figSize = figureSize(hero.figure, 900, 360, 16);
     heroBurst(o, hero, palette, fonts, { cx: leftCx, cy: 760, boxW: 960, figSize, capMax: 58 });
   }
 

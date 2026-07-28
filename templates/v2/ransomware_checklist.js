@@ -100,14 +100,14 @@ function qaCard(o, b, palette, fonts, { x, y, w, budgetH }) {
   // Question line — yellow, bold; cap at 40% of inner budget
   const qBudget = Math.max(48, Math.round(innerBudget * 0.38));
   const qSize = fitFontSize(b.question, {
-    width: textW, height: qBudget, maxSize: 46, minSize: 38, lineHeight: 1.25
+    width: textW, height: qBudget, maxSize: 46, minSize: 16, lineHeight: 1.25
   });
   const qH = Math.round(estTextHeight(b.question, qSize, textW, 1.25));
 
   // Answer body: whatever remains after question + separator gap
   const aBudget = Math.max(48, innerBudget - qH - A_PAD_V - 10);
   const aSize = fitFontSize(b.answer, {
-    width: textW, height: aBudget, maxSize: 44, minSize: 38, lineHeight: 1.3
+    width: textW, height: aBudget, maxSize: 44, minSize: 16, lineHeight: 1.3
   });
   const aH = Math.round(estTextHeight(b.answer, aSize, textW, 1.3));
 
@@ -202,11 +202,12 @@ function buildPortrait(content, palette, fonts) {
   // Each card gets an equal share of available height
   const cardBudget = Math.max(120, Math.round((stackAvail - gapTotal) / n));
 
-  blocks.forEach((b, i) => {
-    const cardY = cursor + 16 + i * (cardBudget + CARD_GAP);
-    qaCard(o, b, palette, fonts, {
+  let cardY = cursor + 16;
+  blocks.forEach((b) => {
+    const cardBottom = qaCard(o, b, palette, fonts, {
       x: PAD, y: cardY, w: zoneW, budgetH: cardBudget
     });
+    cardY = cardBottom + CARD_GAP;
   });
 
   // 5. QR imageSlot — centred between stack bottom and CTA bar
@@ -281,11 +282,12 @@ function buildLandscape(content, palette, fonts) {
     const gapTotal = CARD_GAP * (m - 1);
     const cardBudget = Math.max(100, Math.round((colH - gapTotal) / m));
 
-    col.forEach((b, i) => {
-      const cardY = cursor + 16 + i * (cardBudget + CARD_GAP);
-      qaCard(o, b, palette, fonts, {
+    let cardY = cursor + 16;
+    col.forEach((b) => {
+      const cardBottom = qaCard(o, b, palette, fonts, {
         x: colX, y: cardY, w: colW, budgetH: cardBudget
       });
+      cardY = cardBottom + CARD_GAP;
     });
   });
 

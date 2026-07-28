@@ -109,7 +109,7 @@ function caseRow(o, b, palette, fonts, { x, y, w, h, split }) {
     text: 'Situation', x: situX, y: y + 30, fontSize: 22,
     bg: palette.accent, color: DARK_INK, font: fonts.head, msgId: b.id, square: true
   }));
-  const sSize = fitFontSize(b.situation, { width: sW, height: h - 150, maxSize: 44, minSize: 38 });
+  const sSize = fitFontSize(b.situation, { width: sW, height: h - 150, maxSize: 44, minSize: 16 });
   o.push({
     ...textbox({
       text: b.situation, x: situX, y: y + 100, w: sW, fontSize: sSize,
@@ -124,7 +124,7 @@ function caseRow(o, b, palette, fonts, { x, y, w, h, split }) {
     text: 'Response', x: respX, y: y + 30, fontSize: 22,
     bg: palette.primary, color: DARK_BASE, font: fonts.head, msgId: b.id, square: true
   }));
-  const rSize = fitFontSize(b.response, { width: rW, height: h - 150, maxSize: 44, minSize: 38 });
+  const rSize = fitFontSize(b.response, { width: rW, height: h - 150, maxSize: 44, minSize: 16 });
   o.push({
     ...textbox({
       text: b.response, x: respX, y: y + 100, w: rW, fontSize: rSize,
