@@ -13,6 +13,7 @@ import { buildMaskMap, redact, restore, assertNoLeaks } from './redactor.js';
 import { normalizeChatCompletionsBase, resolveModelsUrl, parseModelsList } from './provider-url.js';
 import { tryParseJson } from '#orchestration';
 import { currentKey } from './request-key.js';
+import { isParamError, defaultShape, altShape, tokenParams } from './chat-params.js';
 
 const OPENAI_DEFAULT_BASE = 'https://api.openai.com/v1';
 
@@ -38,6 +39,7 @@ export class MaskingEgress {
     this._openaiInjected = Boolean(transports.openai); // tests inject a fixed client — never rebuild it
     this._openaiSig = null; // identity of the currently-cached built client (provider+base+key)
     this._fetch = transports.fetch || null; // injectable for listModels() tests
+    this._modelShape = new Map(); // modelId -> last-successful param shape ('standard'|'reasoning')
   }
 
   _providerConfig() {
@@ -95,6 +97,31 @@ export class MaskingEgress {
     this._openai = build();
     this._openaiSig = sig;
     return this._openai;
+  }
+
+  /**
+   * Call chat.completions with the model's param shape (max_tokens+temperature
+   * for standard models, max_completion_tokens for reasoning/o-series). On a
+   * 400 that names a token/temperature param, retry ONCE with the alternate
+   * shape and cache the winner so later calls for that model are single-attempt.
+   * Non-param errors (401/403/5xx/network) propagate unchanged — no retry.
+   */
+  async _createChat(client, { model, messages, maxTokens, temperature }) {
+    const start = this._modelShape.get(model) || defaultShape(model);
+    const call = (shape) => client.chat.completions.create({
+      model, messages, ...tokenParams(shape, maxTokens, temperature)
+    });
+    try {
+      const res = await call(start);
+      this._modelShape.set(model, start);
+      return res;
+    } catch (err) {
+      if (!isParamError(err)) throw err;
+      const other = altShape(start);
+      const res = await call(other);
+      this._modelShape.set(model, other);
+      return res;
+    }
   }
 
   /**
@@ -168,18 +195,15 @@ export class MaskingEgress {
       return { ok: false, code: err.code || 'CONFIG', message: (err.message || 'not configured').slice(0, 200) };
     }
     try {
-      const res = await client.chat.completions.create({
-        model, max_tokens: 8, temperature: 0,
-        messages: [{ role: 'user', content: 'ping' }]
+      const res = await this._createChat(client, {
+        model, messages: [{ role: 'user', content: 'ping' }], maxTokens: 8, temperature: 0
       });
       return { ok: true, model, sample: (res?.choices?.[0]?.message?.content || '').slice(0, 120) };
     } catch (err) {
-      return {
-        ok: false,
-        code: err.code || 'CALL_FAILED',
-        status: err.status ?? null,
-        message: (err.message || 'the endpoint call failed').slice(0, 200)
-      };
+      const status = err.status ?? null;
+      let message = (err.message || 'the endpoint call failed').slice(0, 200);
+      if (status === 401 || status === 403) message += ' — the model may not be enabled for this key (check Foundry access).';
+      return { ok: false, code: err.code || 'CALL_FAILED', status, message };
     }
   }
 
@@ -272,12 +296,11 @@ export class MaskingEgress {
         let promptTokens = null;
         let completionTokens = null;
         try {
-          const res = await client.chat.completions.create({
-            model: useModel, max_tokens: maxTokens, temperature,
-            messages: [
+          const res = await this._createChat(client, {
+            model: useModel, messages: [
               ...(maskedSystem ? [{ role: 'system', content: maskedSystem }] : []),
               { role: 'user', content: maskedUser }
-            ]
+            ], maxTokens, temperature
           });
           promptTokens = res?.usage?.prompt_tokens ?? null;
           completionTokens = res?.usage?.completion_tokens ?? null;
@@ -371,15 +394,14 @@ export class MaskingEgress {
         let promptTokens = null;
         let completionTokens = null;
         try {
-          const res = await client.chat.completions.create({
-            model: useModel, max_tokens: maxTokens,
-            messages: [{
+          const res = await this._createChat(client, {
+            model: useModel, messages: [{
               role: 'user',
               content: [
                 { type: 'text', text: maskedPrompt },
                 { type: 'image_url', image_url: { url: `data:${mediaType};base64,${imageBase64}` } }
               ]
-            }]
+            }], maxTokens: maxTokens
           });
           promptTokens = res?.usage?.prompt_tokens ?? null;
           completionTokens = res?.usage?.completion_tokens ?? null;

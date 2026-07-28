@@ -464,3 +464,73 @@ test('testContentModel reports CUSTOM_MODEL_MISSING when content is unset', asyn
   assert.equal(r.ok, false);
   assert.equal(r.code, 'CUSTOM_MODEL_MISSING');
 });
+
+// ── Adaptive _createChat tests (Task 2) ─────────────────────────────────────
+
+// Fake client whose chat.completions.create rejects the `rejectKey` param with a
+// 400 and succeeds otherwise. Records every call's params.
+function shapeFake({ rejectKey }) {
+  const calls = [];
+  return {
+    calls,
+    client: { chat: { completions: { create: async (req) => {
+      calls.push(req);
+      if (rejectKey in req) { const e = new Error(`Unsupported parameter: ${rejectKey}`); e.status = 400; throw e; }
+      return { choices: [{ message: { content: 'ok' } }], usage: {} };
+    } } } }
+  };
+}
+
+test('_createChat self-heals a param-400 by flipping the shape, then caches it', async () => {
+  const { egress } = setup();
+  const { client, calls } = shapeFake({ rejectKey: 'max_tokens' }); // standard shape rejected
+  // gpt-4o defaults to 'standard' (max_tokens) → 400 → retry 'reasoning' (max_completion_tokens) → ok
+  const res1 = await egress._createChat(client, { model: 'gpt-4o', messages: [{ role: 'user', content: 'hi' }], maxTokens: 16, temperature: 0.2 });
+  assert.equal(res1.choices[0].message.content, 'ok');
+  assert.equal(calls.length, 2, 'first attempt (max_tokens) failed, second (max_completion_tokens) succeeded');
+  assert.ok('max_tokens' in calls[0]);
+  assert.ok('max_completion_tokens' in calls[1]);
+  // Second call for the SAME model uses the learned shape — one attempt only.
+  const before = calls.length;
+  const res2 = await egress._createChat(client, { model: 'gpt-4o', messages: [{ role: 'user', content: 'hi' }], maxTokens: 16, temperature: 0.2 });
+  assert.equal(res2.choices[0].message.content, 'ok');
+  assert.equal(calls.length - before, 1, 'cached shape → single attempt');
+  assert.ok('max_completion_tokens' in calls[before]);
+});
+
+test('_createChat does NOT retry a non-param error (e.g. 401)', async () => {
+  const { egress } = setup();
+  const calls = [];
+  const client = { chat: { completions: { create: async (req) => { calls.push(req); const e = new Error('Unauthorized'); e.status = 401; throw e; } } } };
+  await assert.rejects(() => egress._createChat(client, { model: 'gpt-4o', messages: [{ role: 'user', content: 'hi' }], maxTokens: 16, temperature: 0 }), (err) => err.status === 401);
+  assert.equal(calls.length, 1, '401 is not retried');
+});
+
+test('completeText succeeds through _createChat against a max_tokens-rejecting endpoint', async () => {
+  const { vault, bus, db } = setup();
+  vault.setProviderConfig({ provider: 'custom', customBaseUrl: 'http://localhost:11434/v1', customModels: { content: 'o1-mini' } });
+  const { client } = shapeFake({ rejectKey: 'max_tokens' });
+  const egress = new MaskingEgress({ vault, bus, db, transports: { openai: client } });
+  const out = await runWithKey('k', () => egress.completeText({ user: 'hello' }, CTX));
+  assert.equal(typeof out, 'string');
+});
+
+test('completeVision routes through _createChat (no temperature in the request)', async () => {
+  const { vault, bus, db } = setup();
+  vault.setProviderConfig({ provider: 'custom', customBaseUrl: 'http://localhost:11434/v1', customModels: { content: 'gpt-4o', vision: 'gpt-4o' } });
+  const { client, calls } = shapeFake({ rejectKey: '__none__' }); // accepts everything
+  const egress = new MaskingEgress({ vault, bus, db, transports: { openai: client } });
+  await runWithKey('k', () => egress.completeVision({ prompt: 'describe', imageBase64: 'aGk=' }, CTX));
+  assert.equal('temperature' in calls[0], false, 'vision sends no temperature');
+});
+
+test('testContentModel adds an entitlement hint on 401', async () => {
+  const { vault, bus, db } = setup();
+  vault.setProviderConfig({ provider: 'custom', customBaseUrl: 'http://localhost:11434/v1', customModels: { content: 'gpt-4o' } });
+  const client = { chat: { completions: { create: async () => { const e = new Error('Unauthorized'); e.status = 401; throw e; } } } };
+  const egress = new MaskingEgress({ vault, bus, db, transports: { openai: client } });
+  const r = await runWithKey('k', () => egress.testContentModel());
+  assert.equal(r.ok, false);
+  assert.equal(r.status, 401);
+  assert.match(r.message, /not be enabled for this key/);
+});
