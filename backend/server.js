@@ -16,7 +16,6 @@ import { postersRouter } from './routes/posters.js';
 import { imagesRouter } from './routes/images.js';
 import { editorRouter } from './routes/editor.js';
 import { translationRouter } from './routes/translation.js';
-import { loadOrCreateToken, sessionAuth, tokenCookieSetter } from './auth.js';
 import { runWithKey } from '../masking/request-key.js';
 import { egressLogRouter } from './routes/egress_log.js';
 import { usageRouter } from './routes/usage.js';
@@ -32,10 +31,6 @@ export function createServer(ctx = createAppContext(), { dataDir = join(HERE, '.
   // The AI provider key travels per request in x-provider-key (browser
   // sessionStorage) and is used request-scoped only — never persisted.
   app.use((req, _res, next) => runWithKey(req.get('x-provider-key') || '', next));
-
-  const token = loadOrCreateToken(dataDir);
-  app.use(tokenCookieSetter(token));
-  app.use('/api', sessionAuth(token));
 
   // API
   app.use('/api/config', configRouter(ctx));
@@ -112,14 +107,13 @@ export function createServer(ctx = createAppContext(), { dataDir = join(HERE, '.
     res.status(status).json({ error: err.code || 'INTERNAL_ERROR' });
   });
 
-  return { app, ctx, token };
+  return { app, ctx };
 }
 
 const mainPath = process.argv[1] ? resolve(process.argv[1]).toLowerCase() : '';
 if (fileURLToPath(import.meta.url).toLowerCase() === mainPath) {
-  const { app, token } = createServer();
+  const { app } = createServer();
   app.listen(PORT, '127.0.0.1', () => {
-    console.log(`Poster app: http://127.0.0.1:${PORT}/?token=${token}`);
-    console.log('(open the tokenized URL once — it sets the session cookie)');
+    console.log(`Poster app: http://127.0.0.1:${PORT}/`);
   });
 }
