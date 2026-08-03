@@ -961,6 +961,15 @@ function renderAutoSummary(decisions = {}) {
   const failed = images.failed || [];
   addLine('Images', `${images.filled ?? 0} of ${images.requested ?? 0} slots filled`
     + (failed.length ? ` — failed: ${failed.join(', ')}` : ''));
+  // candidate designs: the autopilot compiled every schema-compatible brief
+  // and applied the cleanest — narrate the shoot-out (winner listed first)
+  const candidates = decisions.candidates || [];
+  if (candidates.length > 1) {
+    addLine('Design shoot-out', candidates.map((c, i) => {
+      const name = templateMetaById.get(c.templateId)?.name || c.templateId;
+      return `${i === 0 ? '★ ' : ''}${name} (${c.paletteId}, quality ${c.score})`;
+    }).join(' · '));
+  }
   box.classList.remove('hidden');
 }
 
