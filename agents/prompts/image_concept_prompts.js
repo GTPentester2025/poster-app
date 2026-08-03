@@ -121,6 +121,92 @@ export function bannedIconsFor(pointText) {
   return GENERIC_ICON_BANS.filter((b) => !b.unlessAbout.test(t)).map((b) => b.icon).join(', ');
 }
 
+// ── Concept v2: rich concept profiles per visual mode ───────────────────────
+// The concept object is {subject, setting, composition, lighting, mood,
+// styleKeywords[], avoid[]} (+ `concept`, the one-sentence summary). Per-mode
+// profiles supply the lighting/mood/styleKeywords/setting defaults so both the
+// model path and the deterministic fallback stay art-directed per mode.
+
+export const MODE_CONCEPT_PROFILES = {
+  futuristic: {
+    lighting: 'volumetric neon rim light with a cool cyan-and-amber glow against a dark backdrop',
+    mood: 'sleek, high-tech, quietly urgent',
+    styleKeywords: ['high-tech', 'neon accents', 'glowing circuitry', 'cinematic depth', 'sci-fi'],
+    setting: 'a sleek darkened high-tech workspace with subtle glowing interface surfaces (all blank)',
+    bgSetting: 'a deep dark abstract tech horizon with soft neon light bands and generous empty space'
+  },
+  holographic: {
+    lighting: 'iridescent prismatic light refracting through translucent glassy surfaces',
+    mood: 'premium, futuristic, luminous',
+    styleKeywords: ['iridescent', 'holographic sheen', 'translucent glass', 'chromatic gradients', 'floating light particles'],
+    setting: 'a dark premium space with translucent holographic panels and floating light particles (all blank)',
+    bgSetting: 'a dark aurora field of iridescent cyan-magenta-violet gradients with calm open regions'
+  },
+  editorial: {
+    lighting: 'soft directional studio light with gentle shadows and clean highlights',
+    mood: 'calm, confident, professional',
+    styleKeywords: ['editorial', 'minimal', 'flat vector', 'bold shapes', 'magazine-grade'],
+    setting: 'a clean modern workplace rendered in restrained flat shapes with generous negative space',
+    bgSetting: 'a restrained abstract field of flat brand-color shapes with wide areas of open negative space'
+  }
+};
+
+// Cliché imagery banned by default (fresh concrete metaphors beat stock tropes).
+// e.g. phishing → a hooded figure at a laptop is CLICHÉ; prefer email-UI
+// metaphors, a fishing lure resting on a keyboard, a deceptive parcel.
+export const CLICHE_AVOID = [
+  'hooded hacker figure at a laptop',
+  'matrix-style falling green code',
+  'generic glowing shield emblem',
+  'skull-and-crossbones imagery',
+  'binary digit rain'
+];
+
+// Baseline avoid entries appended to every concept (zero-text hard rule).
+export const BASE_AVOID = [
+  'any text, letters, numbers or words',
+  'watermarks or logos',
+  'UI screenshots with legible text'
+];
+
+// Few-shot examples per visual mode: realistic point → rich-concept JSON pairs
+// (one content slot, one background slot) so the model sees the exact shape and
+// the concrete-not-cliché standard we expect.
+export const CONCEPT_FEWSHOT = {
+  futuristic: [
+    'EXAMPLE (content slot) — POINT: "Check the sender address before you click" → '
+    + '{"subject":"a glowing magnifying lens hovering over a floating translucent email card, the sender strip highlighted in amber","setting":"a sleek darkened high-tech desk with blank holographic panels","composition":"subject off-center on the right third with clear negative space left","lighting":"cyan volumetric rim light with amber accents","mood":"sleek, quietly urgent","styleKeywords":["high-tech","neon accents","cinematic depth"],"avoid":["hooded hacker figure at a laptop","generic envelope icon","any text or letters"]}',
+    'EXAMPLE (background slot) — TOPIC: phishing → '
+    + '{"subject":"a faint lattice of interconnected light nodes receding into darkness","setting":"a deep dark abstract tech horizon","composition":"detail pushed to the edges, calm empty center for text overlay","lighting":"soft neon glow fading to near-black","mood":"atmospheric, understated","styleKeywords":["abstract","low detail","negative space"],"avoid":["focal subjects in the center","any text or letters"]}'
+  ],
+  holographic: [
+    'EXAMPLE (content slot) — POINT: "Never share your one-time code" → '
+    + '{"subject":"a translucent crystalline key dissolving into prismatic shards as a hand reaches for it","setting":"a dark premium space with iridescent glass panels","composition":"centered vertical subject","lighting":"prismatic refraction with chromatic aurora gradients","mood":"premium, luminous","styleKeywords":["iridescent","holographic sheen","translucent glass"],"avoid":["generic padlock icon","any text or numbers"]}'
+  ],
+  editorial: [
+    'EXAMPLE (content slot) — POINT: "Lock your screen when you step away" → '
+    + '{"subject":"an empty ergonomic chair beside a tidy desk, the closed laptop casting a long calm shadow","setting":"a clean modern office in restrained flat shapes","composition":"rule-of-thirds, subject low-left with open space above","lighting":"soft directional studio light","mood":"calm, confident","styleKeywords":["editorial","minimal","flat vector"],"avoid":["cluttered scenes","any text or letters"]}'
+  ]
+};
+
+/** The few-shot block for a normalized visual mode ('' when none defined). */
+export function fewshotBlock(mode) {
+  const shots = CONCEPT_FEWSHOT[mode];
+  return Array.isArray(shots) && shots.length ? shots.join(' ') : '';
+}
+
+export const IMAGE_CONCEPT_INSTRUCTION_V2 =
+  'Return ONLY minified JSON of this exact shape (no prose, no code fences): '
+  + '{"subject": string, "setting": string, "composition": string, "lighting": string, "mood": string, '
+  + '"styleKeywords": [string], "avoid": [string]}. '
+  + 'subject = the EXACT, literal focal thing/scene depicting the SPECIFIC signal above — concrete and fresh, '
+  + 'never a lazy stock trope (a hooded figure at a laptop is CLICHÉ; prefer concrete metaphors like an email-card '
+  + 'lure, a fishing lure resting on a keyboard, a deceptive parcel). '
+  + 'setting = where it sits (environment, surfaces — all blank, no writing). '
+  + 'composition = how it is framed for the slot. lighting + mood = the render feel. '
+  + 'styleKeywords = 3-6 short style descriptors. avoid = concrete things NOT to render (clichés, off-point icons, any text). '
+  + 'Everything purely pictorial — no text, letters, numbers, signage, or writing of any kind.';
+
 export const IMAGE_CONCEPT_SYSTEM =
   'You are a visual concept director for a premium security-awareness poster studio. '
   + 'Given one specific POINT the poster makes (a single message) and the concrete SIGNALS it teaches, '

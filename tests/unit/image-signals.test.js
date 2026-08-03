@@ -65,7 +65,7 @@ test('conceptForPoint: the outbound prompt carries the mined signals and the gen
   const c = await conceptForPoint({
     egress, runId: 'r', point: PHISH_BLOCK.text, block: PHISH_BLOCK, topics: ['phishing']
   });
-  assert.match(c, /magnifying glass over an email sender-address bar/, 'model concept adopted');
+  assert.match(String(c), /magnifying glass over an email sender-address bar/, 'model concept adopted');
 
   const sent = egress.calls[0].opts.user;
   assert.match(sent, /CONCRETE SIGNALS/, 'signals listed in the prompt');
@@ -74,5 +74,5 @@ test('conceptForPoint: the outbound prompt carries the mined signals and the gen
 
 test('conceptForPoint: offline fallback leads with the mined signal, not a generic topic render', async () => {
   const c = await conceptForPoint({ runId: 'r', point: PHISH_BLOCK.text, block: PHISH_BLOCK });
-  assert.match(c.toLowerCase(), /sender address|domain/, 'fallback names the concrete signal');
+  assert.match(String(c).toLowerCase(), /sender address|domain/, 'fallback names the concrete signal');
 });

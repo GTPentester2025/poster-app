@@ -185,8 +185,13 @@ export const skills = ['generate_asset', 'style_match_template'];
 // never a fixed security motif. v3 (client #2): the STRICT COLOR PALETTE clause
 // (now with Dominant field + Accents ONLY + dynamic FORBIDDEN hues) moves UP to
 // directly after the subject sentence, before style; a paletteRetry flag hoists
-// the forbidden clause to the very first line.
-export const IMAGE_GENERATOR_PROMPT_VERSION = 3;
+// the forbidden clause to the very first line. v4 (concept v2): the styleHint
+// may be a RICH concept object {subject, setting, composition, lighting, mood,
+// styleKeywords[], avoid[]} — the prompt assembles subject sentence → setting →
+// palette → slot-aspect composition clause → lighting/mood → style keywords, and
+// appends the concept's avoid list; the zero-text rule is strengthened (logos,
+// signage, UI screenshots with legible text explicitly forbidden).
+export const IMAGE_GENERATOR_PROMPT_VERSION = 4;
 
 // Template family → style adjective fed into the prompt.
 const TEMPLATE_STYLE_PROFILES = {
@@ -305,13 +310,16 @@ const TREATMENT_STYLE = {
     + 'at low contrast so overlaid text stays fully legible; dark-dominant, no focal subjects, no text'
 };
 
-/** The zero-text instruction block — stated multiple ways per spec hard rule. */
+/** The zero-text instruction block — stated multiple ways per spec hard rule.
+ *  v4: explicitly forbids text, letters, numbers, words, watermarks, LOGOS,
+ *  signage, and UI screenshots with legible text. */
 function zeroTextInstruction() {
   return [
     'ABSOLUTE REQUIREMENT — ZERO TEXT IN THE IMAGE:',
     'absolutely no text, no letters, no words, no numbers, no typography',
     'no signage, no labels, no captions, no symbols that resemble letters',
-    'no watermarks, no UI text, no speech bubbles with words, no writing of any kind',
+    'no watermarks, no logos, no brand marks, no UI text, no UI screenshots with legible text',
+    'no speech bubbles with words, no writing of any kind',
     'do NOT include screens, monitors, phone displays, signage, billboards, keyboards, clocks, dials, books, or documents — such surfaces tempt embedded text; keep every surface blank',
     'the image must be PURELY PICTORIAL — a viewer must see only shapes, figures, and illustration elements',
     'if any text, letter, number, or word appears anywhere in the image, the result will be rejected'
@@ -337,6 +345,27 @@ const SLOT_CLASS_DIRECTIVES = {
     + 'believable environment, depth, and premium cinematic composition.'
 };
 
+// ── v4 slot-aspect composition clauses ──────────────────────────────────────
+// The composition clause is chosen by the SLOT's aspect so the render is framed
+// for the space it will occupy: wide → rule-of-thirds with clear negative
+// space; tall → centered vertical subject; square → centered.
+const ASPECT_COMPOSITION_CLAUSES = {
+  wide: 'rule-of-thirds balance with the subject off-center and clear negative space beside it',
+  tall: 'a centered vertical subject aligned along the central vertical axis',
+  square: 'a centered, balanced subject with generous breathing room around it'
+};
+
+/**
+ * The composition clause for a slot aspect ('wide'|'tall'|'square'); unknown or
+ * missing aspects get the legacy generic rule-of-thirds clause.
+ * @param {string} aspect
+ * @returns {string}
+ */
+export function compositionClauseForAspect(aspect) {
+  return ASPECT_COMPOSITION_CLAUSES[aspect]
+    || 'rule-of-thirds balance and generous negative space around it';
+}
+
 /**
  * Build the composition directive string for a foreground slot given its profile.
  * @param {{sizeClass: 'accent'|'card'|'hero', aspect: string, position: string}} profile
@@ -359,7 +388,11 @@ function slotProfileDirective(profile) {
  *   styleHint            — from slotSpec.styleHint: the per-poster visual subject the
  *                          design agent derived from THIS poster's topic + content
  *                          (e.g. 'a tidy, cleared desk with a locked drawer' for a
- *                          clean-desk poster) — never a fixed motif
+ *                          clean-desk poster) — never a fixed motif. Since v4 this
+ *                          may be a RICH concept object from conceptForPoint
+ *                          ({subject, setting, composition, lighting, mood,
+ *                          styleKeywords[], avoid[]}) — the structured fields then
+ *                          drive the prompt; a plain string keeps the legacy path.
  *   templateStyle        — template family key (e.g. 'minimal-clean', 'dark-alert')
  *   topics               — string[] poster topics (subject matter context)
  *   userPrompt           — optional user instructions (data-fenced)
@@ -384,11 +417,17 @@ export async function generateAsset({
     ? `Security awareness topic: ${fenceUserText(topics.join(', '))}.`
     : 'Security awareness illustration.';
   const isBackground = slotId === 'bg';
+  // v4: the styleHint may be a RICH concept object from the concept director
+  // ({subject, setting, composition, lighting, mood, styleKeywords, avoid});
+  // detect it so the prompt can use the structured fields. A plain-string
+  // styleHint keeps the legacy assembly untouched.
+  const concept = styleHint && typeof styleHint === 'object' && (styleHint.subject || styleHint.concept)
+    ? styleHint : null;
   // Background slots produce a full-bleed atmospheric backdrop; when the art
   // director supplied a backgroundConcept, it leads the subject.
   const visualConcept = isBackground
-    ? fenceUserText(bgConcept || (brief && brief.backgroundConcept) || styleHint || defaultVisualConcept(topics))
-    : fenceUserText(styleHint || defaultVisualConcept(topics));
+    ? fenceUserText(bgConcept || (brief && brief.backgroundConcept) || String(styleHint || '') || defaultVisualConcept(topics))
+    : fenceUserText((concept ? (concept.subject || concept.concept) : styleHint) || defaultVisualConcept(topics));
 
   // Brand palette adherence (client #2): the STRICT COLOR PALETTE clause is
   // computed once and placed EARLY — directly after the subject sentence, before
@@ -404,12 +443,22 @@ export async function generateAsset({
       topicContext
     ]
     // Foreground: lead with the EXACT literal subject for THIS point so it drives
-    // the image; the palette clause comes NEXT (before style) so palette adherence
-    // is early; the visual style is only a surface modifier. Topic is context only.
+    // the image; the setting (v4) grounds it; the palette clause comes NEXT
+    // (before style) so palette adherence is early; the visual style is only a
+    // surface modifier. Topic is context only.
     : [
       `A clear, LITERAL illustration that depicts EXACTLY this specific situation — a viewer must instantly recognise it: ${visualConcept}.`,
+      ...(concept && concept.setting ? [`Setting: ${fenceUserText(concept.setting)}.`] : []),
       paletteClause,
-      `Render it in this visual style: ${styleAdj}. The style is only a finish — keep the exact subject above unmistakable, do not replace or abstract it.`,
+      `Render it in this visual style: ${styleAdj}${concept && concept.styleKeywords && concept.styleKeywords.length
+        ? `; style keywords: ${fenceUserText(concept.styleKeywords.join(', '))}` : ''}. `
+        + 'The style is only a finish — keep the exact subject above unmistakable, do not replace or abstract it.',
+      ...(concept && (concept.lighting || concept.mood)
+        ? [[
+          concept.lighting ? `Lighting: ${fenceUserText(concept.lighting)}.` : '',
+          concept.mood ? `Mood: ${fenceUserText(concept.mood)}.` : ''
+        ].filter(Boolean).join(' ')]
+        : []),
       topicContext,
       'Be concrete and specific to the situation — no generic stock-photo blandness, no unrelated objects, no vague symbolism.',
       // Slot-profile composition directive: composition complexity is calibrated
@@ -438,10 +487,11 @@ export async function generateAsset({
     parts.push('Compose it as a deep, atmospheric backdrop with calm, low-detail central and upper regions '
       + 'so overlaid poster text stays readable; richer detail toward the edges. No focal subject dead-center.');
   } else {
-    // art-directed foreground: a single clear hero subject, professionally
-    // composed with breathing room so poster text overlays cleanly.
-    parts.push('Composition: one clear hero subject, confidently framed with rule-of-thirds balance and '
-      + 'generous negative space around it; uncluttered, editorial, not busy.');
+    // art-directed foreground: a single clear hero subject, composed FOR the
+    // slot's aspect (v4): wide → rule-of-thirds + clear negative space; tall →
+    // centered vertical subject; square → centered.
+    parts.push(`Composition: one clear hero subject, confidently framed with ${compositionClauseForAspect(slotProfile && slotProfile.aspect)}; `
+      + 'uncluttered, editorial, not busy.');
   }
 
   // professional finish (raises perceived quality, cuts the "AI look") + a
@@ -450,6 +500,12 @@ export async function generateAsset({
     + 'physically-plausible lighting and materials, high detail, premium editorial quality.');
   parts.push('Avoid: warped or distorted anatomy, extra or malformed fingers/limbs, melted or duplicated objects, '
     + 'muddy low detail, harsh oversaturation, watermarks, and cluttered messy composition.');
+
+  // v4: the concept's negative/avoid list (clichés, off-point generic icons,
+  // text-bearing surfaces) is appended so the model steers away from them.
+  if (concept && Array.isArray(concept.avoid) && concept.avoid.length) {
+    parts.push(`Do NOT depict any of the following (banned imagery): ${fenceUserText(concept.avoid.join('; '))}.`);
+  }
 
   // The palette clause was already placed EARLY (right after the subject). Here
   // we only add the data-fence rule and the zero-text hard requirement.

@@ -1005,7 +1005,7 @@ test('I7: empty styleHint → visual subject is derived from the poster topic, n
   assert.ok(prompt.includes('ABSOLUTE REQUIREMENT — ZERO TEXT IN THE IMAGE:'),
     'zero-text absolute rule is intact');
   assert.ok(promptUsed === 'masked', 'promptUsed is the masked prompt from egress');
-  assert.equal(IMAGE_GENERATOR_PROMPT_VERSION, 3, 'image generator prompt version bumped');
+  assert.equal(IMAGE_GENERATOR_PROMPT_VERSION, 4, 'image generator prompt version bumped (v4: rich concept assembly)');
 });
 
 test('I7: with a design styleHint, that per-poster subject is used verbatim (topic-derived by the design agent)', async () => {
@@ -1124,6 +1124,96 @@ test('quality tier: background slot renders at high quality (full-bleed surface)
 
   const gen = egress.callsFor('image-generator')[0].opts;
   assert.equal(gen.quality, 'high', 'bg slot stays at high quality');
+});
+
+// ── prompt v4: rich concept assembly (subject/setting/lighting/mood/style/avoid
+// + slot-aspect composition clause + strengthened zero-text rule) ─────────────
+
+// A rich concept object as produced by conceptForPoint v2.
+const RICH_CONCEPT = {
+  subject: 'a fishing lure resting on a laptop keyboard beside a translucent email card',
+  setting: 'a dim modern office desk, every screen surface blank',
+  composition: 'subject off-center with negative space',
+  lighting: 'cool cyan rim light with amber accents',
+  mood: 'quietly tense',
+  styleKeywords: ['flat vector', 'high contrast', 'editorial'],
+  avoid: ['hooded hacker figure at a laptop', 'generic envelope icon'],
+  concept: 'a fishing lure resting on a laptop keyboard beside a translucent email card'
+};
+
+async function v4Prompt(extra = {}) {
+  const egress = new FakeEgress({
+    'image-generator/generate_asset': { imageBase64: GEN_IMAGE_1024, maskedPrompt: 'm' }
+  });
+  await generateAsset({
+    egress, runId: newRunId('poster'),
+    styleHint: RICH_CONCEPT, templateStyle: 'minimal-clean',
+    topics: ['phishing'], userPrompt: '', baseImageDescription: '', ...extra
+  });
+  return egress.callsFor('image-generator')[0].opts.prompt;
+}
+
+test('v4: rich concept fields all reach the prompt — subject leads, setting/lighting/mood/style keywords present', async () => {
+  const prompt = await v4Prompt();
+  const subjectIdx = prompt.indexOf(RICH_CONCEPT.subject);
+  assert.ok(subjectIdx > -1 && subjectIdx < 200, 'concept subject leads the prompt');
+  assert.ok(prompt.includes(`Setting: <user_text>${RICH_CONCEPT.setting}</user_text>.`), 'setting clause present + fenced');
+  assert.ok(prompt.includes(`Lighting: <user_text>${RICH_CONCEPT.lighting}</user_text>.`), 'lighting clause present');
+  assert.ok(prompt.includes(`Mood: <user_text>${RICH_CONCEPT.mood}</user_text>.`), 'mood clause present');
+  assert.ok(prompt.includes('style keywords: <user_text>flat vector, high contrast, editorial</user_text>'), 'style preset keywords appended');
+});
+
+test('v4: avoid list from the concept is appended as banned imagery', async () => {
+  const prompt = await v4Prompt();
+  assert.match(prompt, /Do NOT depict any of the following \(banned imagery\):/, 'negative list header present');
+  assert.ok(prompt.includes('hooded hacker figure at a laptop'), 'cliché ban carried into the prompt');
+  assert.ok(prompt.includes('generic envelope icon'), 'generic icon ban carried into the prompt');
+});
+
+test('v4: composition clause is chosen by the slot aspect (wide → rule-of-thirds + negative space)', async () => {
+  const prompt = await v4Prompt({ slotProfile: { sizeClass: 'card', aspect: 'wide', position: 'center' } });
+  assert.match(prompt, /Composition: .*rule-of-thirds balance with the subject off-center and clear negative space/,
+    'wide slot gets the rule-of-thirds + negative-space clause');
+});
+
+test('v4: tall slot → centered vertical subject; square slot → centered', async () => {
+  const tall = await v4Prompt({ slotProfile: { sizeClass: 'card', aspect: 'tall', position: 'center' } });
+  assert.match(tall, /Composition: .*centered vertical subject aligned along the central vertical axis/,
+    'tall slot gets the centered-vertical clause');
+  const square = await v4Prompt({ slotProfile: { sizeClass: 'card', aspect: 'square', position: 'center' } });
+  assert.match(square, /Composition: .*centered, balanced subject/, 'square slot gets the centered clause');
+});
+
+test('v4: strengthened zero-text rule — text, letters, numbers, words, watermarks, logos, signage, UI screenshots all named', async () => {
+  const prompt = await v4Prompt();
+  assert.match(prompt, /ABSOLUTE REQUIREMENT — ZERO TEXT IN THE IMAGE:/, 'zero-text header intact');
+  for (const term of ['no text', 'no letters', 'no numbers', 'no words', 'no watermarks', 'no logos', 'no signage', 'no UI screenshots with legible text']) {
+    assert.ok(prompt.includes(term), `zero-text rule names "${term}"`);
+  }
+});
+
+test('v4: palette lock unchanged — STRICT COLOR PALETTE still directly after subject/setting, before style', async () => {
+  const prompt = await v4Prompt({ palette: { primary: '#E3AF32', accent: '#E3AF32', background: '#0D0C12', dark: '#0D0C12' } });
+  const subjectIdx = prompt.indexOf(RICH_CONCEPT.subject);
+  const paletteIdx = prompt.indexOf('STRICT COLOR PALETTE');
+  const styleIdx = prompt.indexOf('Render it in this visual style');
+  assert.ok(subjectIdx > -1 && paletteIdx > subjectIdx, 'palette clause after the subject');
+  assert.ok(paletteIdx < styleIdx, 'palette clause before the style clause');
+  assert.match(prompt, /FORBIDDEN: blue, teal, green, purple, pink hues/, 'forbidden hue lock intact');
+});
+
+test('v4: plain-string styleHint keeps the legacy prompt shape (no setting/avoid clauses)', async () => {
+  const egress = new FakeEgress({
+    'image-generator/generate_asset': { imageBase64: GEN_IMAGE_1024, maskedPrompt: 'm' }
+  });
+  await generateAsset({
+    egress, runId: newRunId('poster'),
+    styleHint: 'a tidy cleared desk with a locked drawer', templateStyle: 'minimal-clean', topics: ['clean desk']
+  });
+  const prompt = egress.callsFor('image-generator')[0].opts.prompt;
+  assert.ok(prompt.includes('a tidy cleared desk with a locked drawer'), 'string subject still used');
+  assert.ok(!prompt.includes('Setting: '), 'no setting clause for a string styleHint');
+  assert.ok(!prompt.includes('banned imagery'), 'no avoid list for a string styleHint');
 });
 
 test('accent slot: drops to 1024x1024 square at medium quality', async () => {

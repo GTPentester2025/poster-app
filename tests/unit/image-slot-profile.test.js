@@ -282,29 +282,32 @@ test('conceptForPoint: no slotProfile → no slot class clause', async () => {
 
 // ── fallbackConceptForProfile ──────────────────────────────────────────────────
 
+// v2: fallbackConceptForProfile returns a RICH concept object that stringifies
+// to the legacy sentence — the sentence assertions run against String(c).
+
 test('fallbackConceptForProfile: accent → iconic-minimal fallback', () => {
-  const c = fallbackConceptForProfile('lock your screen', { sizeClass: 'accent' });
+  const c = String(fallbackConceptForProfile('lock your screen', { sizeClass: 'accent' }));
   assert.ok(c.includes('iconic') || c.includes('minimal'), 'iconic/minimal in accent fallback');
   assert.ok(c.includes('lock your screen'), 'point text in fallback');
 });
 
 test('fallbackConceptForProfile: accent with empty point → generic iconic fallback', () => {
-  const c = fallbackConceptForProfile('', { sizeClass: 'accent' });
+  const c = String(fallbackConceptForProfile('', { sizeClass: 'accent' }));
   assert.ok(c.includes('iconic') || c.includes('symbol'), 'generic iconic fallback for empty point');
   assert.ok(!c.includes(':'), 'no dangling colon from empty point');
 });
 
 test('fallbackConceptForProfile: card/hero → standard point-derived fallback', () => {
   const point = 'never plug in a USB stick found in the car park';
-  const card = fallbackConceptForProfile(point, { sizeClass: 'card' });
-  const hero = fallbackConceptForProfile(point, { sizeClass: 'hero' });
+  const card = String(fallbackConceptForProfile(point, { sizeClass: 'card' }));
+  const hero = String(fallbackConceptForProfile(point, { sizeClass: 'hero' }));
   assert.ok(card.includes(point), 'card fallback contains point text');
   assert.ok(hero.includes(point), 'hero fallback contains point text');
   assert.ok(!card.includes('iconic'), 'card fallback is NOT the iconic-minimal variant');
 });
 
 test('fallbackConceptForProfile: null slotProfile → standard fallback', () => {
-  const c = fallbackConceptForProfile('always verify the sender', null);
+  const c = String(fallbackConceptForProfile('always verify the sender', null));
   assert.ok(c.includes('always verify the sender'), 'standard fallback used when profile is null');
   assert.ok(!c.includes('iconic'), 'not an iconic fallback');
 });
@@ -312,11 +315,11 @@ test('fallbackConceptForProfile: null slotProfile → standard fallback', () => 
 // ── conceptForPoint: accent fallback when no egress ──────────────────────────
 
 test('conceptForPoint: accent slot with no egress → iconic-minimal fallback', async () => {
-  const c = await conceptForPoint({
+  const c = String(await conceptForPoint({
     runId: 'r', point: 'a suspicious USB stick on a desk',
     topics: ['usb threats'], slotProfile: { sizeClass: 'accent', aspect: 'square', position: 'top-right' }
     // no egress
-  });
+  }));
   assert.ok(c.includes('iconic') || c.includes('minimal'), 'iconic-minimal in accent offline fallback');
   // client #1: the accent fallback now leads with the mined SIGNAL (lowercased),
   // not the full raw point — the concrete thing to depict ("usb stick").
@@ -324,10 +327,10 @@ test('conceptForPoint: accent slot with no egress → iconic-minimal fallback', 
 });
 
 test('conceptForPoint: card slot with no egress → standard point-derived fallback', async () => {
-  const c = await conceptForPoint({
+  const c = String(await conceptForPoint({
     runId: 'r', point: 'hover the link before clicking',
     topics: ['phishing'], slotProfile: { sizeClass: 'card', aspect: 'wide', position: 'center' }
-  });
+  }));
   assert.ok(c.includes('hover the link before clicking'), 'standard fallback for card slot');
   assert.ok(!c.includes('iconic'), 'NOT iconic-minimal for card slot');
 });

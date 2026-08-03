@@ -25,12 +25,21 @@ export const ASSET_RECOMMENDER_INSTRUCTION =
   + 'generation would. reason = one short sentence. Only matches on the SAME specific signal + compatible '
   + 'treatment/size/palette deserve confidence >= 0.75; topical-only overlaps must stay below it.';
 
-/** Compact one-line rendering of the NEED for the prompt. */
+/** Compact one-line rendering of the NEED for the prompt. The concept may be
+ *  the legacy string or the v2 rich object ({subject, styleKeywords, mood, ...});
+ *  a rich concept renders its subject + style keywords + mood explicitly. */
 export function needLine(need) {
   const n = need || {};
   const parts = [];
   if (n.point) parts.push(`point: "${n.point}"`);
-  if (n.concept) parts.push(`concept: "${n.concept}"`);
+  const c = n.concept;
+  if (c && typeof c === 'object') {
+    parts.push(`concept: "${c.subject || String(c)}"`);
+    if (Array.isArray(c.styleKeywords) && c.styleKeywords.length) parts.push(`style: ${c.styleKeywords.join(', ')}`);
+    if (c.mood) parts.push(`mood: ${c.mood}`);
+  } else if (c) {
+    parts.push(`concept: "${c}"`);
+  }
   if (n.treatment) parts.push(`treatment: ${n.treatment}`);
   if (n.sizeClass) parts.push(`sizeClass: ${n.sizeClass}`);
   if (n.paletteWord) parts.push(`palette: ${n.paletteWord}`);
