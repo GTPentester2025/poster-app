@@ -829,6 +829,7 @@ window.connectPipelineStream({
   onEvent: (evt) => {
     appendFeedCard(evt);
     applyStationFlair(evt);
+    trackAutopilotEvent(evt);
     trackTranslationEvent(evt);
     trackImageSlotEvent(evt);
     window.PipelineTheater?.onEvent(evt);
@@ -879,6 +880,153 @@ $('promptNextBtn').addEventListener('click', () => {
   if (!prompt) { flash($('promptStatus'), 'Describe the topic first.', false); return; }
   completeStation('prompt');
   activateStation('template');
+});
+
+// ── station 1b: one-click Auto-Create (autopilot, POST /api/pipeline/auto) ──
+//
+// Runs the WHOLE pipeline server-side (research → creative direction → angle
+// autopick → content loop with best-effort floor → design compile → image
+// slots) with zero intermediate decisions. The call is synchronous and can
+// take minutes; while it runs the poster's runId emits SSE events on the
+// already-open stream, so the activity rail narrates live and
+// trackAutopilotEvent() below walks the metro line. The runId is only known
+// AFTER the response returns, so like the /start phase the progress strip
+// accepts every event (single-user local app — nothing else is emitting).
+
+const AUTO_STAGE_LABELS = {
+  research: 'Research',
+  'creative-direction': 'Creative direction',
+  'content-loop': 'Content ⇄ Review',
+  'design-apply': 'Design compile',
+  'slot-fill': 'Images'
+};
+const autoStrip = new ProgressStrip($('autoCreateProgress'), AUTO_STAGE_LABELS);
+
+// Stations the autopilot walks, in pipeline order — as each stage's first SSE
+// event arrives the previous stations complete and the new one lights up.
+const AUTO_STATION_ORDER = ['research', 'content', 'design', 'images'];
+let autopilotRunning = false;
+let autoStationIdx = -1; // index into AUTO_STATION_ORDER of the lit station
+
+/** SSE → metro-line progression while the synchronous /auto call is in flight. */
+function trackAutopilotEvent(evt) {
+  if (!autopilotRunning) return;
+  const idx = AUTO_STATION_ORDER.indexOf(stationForEvent(evt));
+  if (idx === -1 || idx <= autoStationIdx) return;
+  for (let i = Math.max(autoStationIdx, 0); i < idx; i += 1) {
+    setStationState(AUTO_STATION_ORDER[i], 'done');
+  }
+  setStationState(AUTO_STATION_ORDER[idx], 'active');
+  autoStationIdx = idx;
+}
+
+/**
+ * "Autopilot decisions" summary card in station 1 — narrates what the
+ * autopilot chose (template, palette, angle, content score, image fills).
+ * Everything is textContent (model-derived strings never touch innerHTML).
+ */
+function renderAutoSummary(decisions = {}) {
+  const box = $('autoSummary');
+  box.innerHTML = '';
+  const title = document.createElement('h3');
+  title.textContent = 'Autopilot decisions';
+  box.appendChild(title);
+  const addLine = (label, value) => {
+    if (value === null || value === undefined || value === '') return null;
+    const line = document.createElement('div');
+    line.className = 'auto-summary-line';
+    const key = document.createElement('strong');
+    key.textContent = `${label}: `;
+    line.appendChild(key);
+    line.appendChild(document.createTextNode(String(value)));
+    box.appendChild(line);
+    return line;
+  };
+  const creative = decisions.creative || {};
+  addLine('Template', templateMetaById.get(creative.templateId)?.name || creative.templateId);
+  addLine('Palette', creative.paletteId);
+  addLine('Angle', decisions.angle?.reason);
+  const content = decisions.content || {};
+  if (content.score !== null && content.score !== undefined) {
+    const line = addLine('Content score', content.score);
+    if (line && content.bestEffort) {
+      const chip = document.createElement('span');
+      chip.className = 'chip best-effort';
+      chip.textContent = 'best effort';
+      chip.title = 'The reviewer never fully passed a draft — the best-scoring one was kept.';
+      line.appendChild(chip);
+    }
+  }
+  const images = decisions.images || {};
+  const failed = images.failed || [];
+  addLine('Images', `${images.filled ?? 0} of ${images.requested ?? 0} slots filled`
+    + (failed.length ? ` — failed: ${failed.join(', ')}` : ''));
+  box.classList.remove('hidden');
+}
+
+$('autoCreateBtn').addEventListener('click', async () => {
+  const prompt = $('promptInput').value.trim();
+  if (!prompt) { flash($('promptStatus'), 'Describe the topic first.', false); return; }
+  if (runStarted) return; // one run per page — "Create another poster" resets
+  $('autoCreateBtn').disabled = true;
+  $('autoCreateBtn').classList.add('is-loading', 'is-running');
+  $('promptNextBtn').disabled = true;
+  $('promptInput').disabled = true;
+  autopilotRunning = true;
+  autoStationIdx = -1;
+  // persistent status — flash() auto-clears long before a minutes-long run ends
+  $('promptStatus').textContent = 'Autopilot running — watch the activity rail (this can take a few minutes)…';
+  $('promptStatus').className = 'status';
+  setStationState('prompt', 'done');
+  setStationState('research', 'active');
+  watchProgress(autoStrip, () => true); // runId unknown until the response (see note above)
+  try {
+    const result = await postJson('/api/pipeline/auto', { prompt });
+    posterId = result.posterId;
+    runId = result.runId;
+    runStarted = true;
+    designAccepted = true;
+    const creative = result.decisions?.creative || {};
+    chosenTemplateId = creative.templateId || null;
+    // template station: autopilot picked it — locked gallery + note (I2 idiom)
+    $('templateGalleryEarly').classList.add('gallery-locked');
+    $('templateLockNote').textContent = 'Template picked by Autopilot for this run — '
+      + 'you can still switch templates at the Design station (station 5).';
+    $('templateLockNote').classList.remove('hidden');
+    // approved content + review trail → station 4 (read-only, like post-approve).
+    // Narration only: if this fetch fails the design fetch below still lands.
+    try {
+      renderApproval(await api(`/api/pipeline/${encodeURIComponent(posterId)}`));
+    } catch { /* content card stays empty — refine shows everything anyway */ }
+    lockContentStation();
+    // fresh design state → preview rail + slot cards, the SAME renderers the
+    // manual flow uses after design compile and slot generation
+    const designState = await api(`/api/design/${encodeURIComponent(posterId)}`);
+    await showDesignResult(designState);   // currentDesign = state, canvases → preview
+    renderImageSlotsStep(designState);     // slot cards (regenerate/replace stay usable)
+    for (const id of ['prompt', 'template', 'research', 'content', 'design', 'images']) {
+      completeStation(id, { collapse: id !== 'prompt' }); // station 1 stays open: summary card
+    }
+    renderAutoSummary(result.decisions);
+    flash($('promptStatus'), 'Autopilot finished — refine anything below.');
+    enterRefineStation();
+  } catch (err) {
+    flash($('promptStatus'), err.message, false);
+    if (!runStarted) {
+      // the run itself failed — re-arm station 1 and roll the metro line back
+      setStationState('prompt', 'active');
+      for (const id of AUTO_STATION_ORDER) setStationState(id, 'pending');
+    }
+  } finally {
+    autopilotRunning = false;
+    unwatchProgress();
+    autoStrip.hide();
+    $('autoCreateBtn').classList.remove('is-loading', 'is-running');
+    // success keeps everything locked (one run per page); failure re-arms
+    $('autoCreateBtn').disabled = runStarted;
+    $('promptNextBtn').disabled = runStarted;
+    $('promptInput').disabled = runStarted;
+  }
 });
 
 // ── station 2: template (template-first, before research) ───────────────────
@@ -1137,6 +1285,7 @@ $('startBtn').addEventListener('click', async () => {
     runStarted = true;
     $('promptInput').disabled = true;
     $('promptNextBtn').disabled = true;
+    $('autoCreateBtn').disabled = true; // one run per page — autopilot included
     $('templateGalleryEarly').classList.add('gallery-locked');
     $('templateLockNote').classList.remove('hidden');
     flash($('startStatus'), `Topic: ${state.topic}${state.grounded ? '' : ' (no matching news — using general security knowledge)'}`);

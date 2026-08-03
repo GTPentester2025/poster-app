@@ -554,6 +554,45 @@ body.run-active .topbar-run-dot {
   max-height: 320px;
 }
 
+/* ── prompt station: one-click Auto-Create (autopilot) ─────────────────────── */
+/* The PRIMARY path of station 1 — a premium gold gradient with a faint inner
+   highlight, visibly heavier than the plain "Continue" button beside it.
+   Built from base.css tokens only (gold/amber family, radius-sm, shadows). */
+#autoCreateBtn {
+  background: linear-gradient(135deg, #f6cf62 0%, var(--gold) 52%, #c98f1f 100%);
+  color: #16130a; border-color: var(--gold);
+  font-weight: 800; font-size: 15px; padding: 11px 22px;
+  box-shadow: 0 2px 12px -2px rgba(227, 175, 50, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.28);
+}
+#autoCreateBtn:hover {
+  border-color: var(--gold); filter: brightness(1.06);
+  box-shadow: 0 4px 18px -3px rgba(227, 175, 50, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.28);
+}
+#autoCreateBtn:disabled:hover { border-color: var(--gold); filter: none; }
+/* while the synchronous /auto call runs: soft breathing glow (the beer-pour
+   .is-loading spinner from base.css rides along; reduced motion kills both) */
+#autoCreateBtn.is-running {
+  animation: auto-create-pulse 1.8s ease-in-out infinite;
+}
+@keyframes auto-create-pulse {
+  0%, 100% { box-shadow: 0 2px 12px -2px rgba(227, 175, 50, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.28); }
+  50%      { box-shadow: 0 4px 22px 1px rgba(227, 175, 50, 0.7),  inset 0 1px 0 rgba(255, 255, 255, 0.28); }
+}
+.auto-create-hint { margin: 8px 0 0; font-size: 12.5px; }
+
+/* "Autopilot decisions" summary card — rendered into station 1 on success */
+.auto-summary {
+  margin-top: 14px; padding: 12px 14px;
+  background: var(--bg2); border: 1px solid var(--gold); border-radius: var(--radius-sm);
+}
+.auto-summary h3 {
+  margin: 0 0 8px; font-size: 13px; font-weight: 800;
+  color: var(--gold); letter-spacing: 0.2px;
+}
+.auto-summary-line { font-size: 12.5px; color: var(--text); margin-top: 4px; line-height: 1.5; }
+.auto-summary-line strong { color: var(--muted); font-weight: 600; }
+.auto-summary .chip.best-effort { color: var(--amber); border-color: var(--amber); }
+
 /* ── empty-state shield SVG motif ──────────────────────────────────────────── */
 /* One reusable brand-gold shield outline. Centered inside empty state blocks;
    sized via CSS so a single markup element works everywhere. */
@@ -705,6 +744,7 @@ body.preview-both #previewBothDivider {
   body.run-busy .feed-empty::after,
   body.run-busy .preview-empty::after { animation: none !important; display: none; }
   button.is-loading::before { animation: none !important; }
+  #autoCreateBtn.is-running { animation: none !important; }
   /* T6 additions */
   .preview-frame canvas.canvas-entered { animation: none !important; }
   .topbar-run-dot { animation: none !important; transition: none !important; }

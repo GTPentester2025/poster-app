@@ -85,9 +85,13 @@
             <button type="button" class="sample-chip"><span class="sample-chip-category">Physical</span>Tailgating scenario: someone in a delivery uniform asks an employee to hold the badge-locked door open. Show the polite way to refuse, direct them to reception, and report the attempt.</button>
           </div>
           <div class="row">
-            <button id="promptNextBtn" class="primary">Continue — pick a template</button>
+            <button id="autoCreateBtn" class="auto-create">✨ Auto-Create — do everything for me</button>
+            <button id="promptNextBtn">Continue — pick a template</button>
             <span id="promptStatus" class="status" role="status" aria-live="polite"></span>
           </div>
+          <p class="hint auto-create-hint">AI picks the angle, template, colors, and images — you can refine anything afterward.</p>
+          <div id="autoCreateProgress" class="stage-strip hidden"></div>
+          <div id="autoSummary" class="auto-summary hidden" role="status"></div>
         </div></div></div>
       </li>
 
