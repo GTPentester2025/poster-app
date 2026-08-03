@@ -415,11 +415,17 @@ export function runDesignPipeline(args) {
   return withPosterLock(args.posterId, () => runDesignPipelineUnlocked(args));
 }
 
-async function runDesignPipelineUnlocked({ ctx, posterId, mode, templateId = null, userPrompt = '', visualMode = 'futuristic' }) {
+async function runDesignPipelineUnlocked({ ctx, posterId, mode, templateId = null, userPrompt = '', visualMode = 'futuristic', creative = null }) {
   const { db, bus, vault, harness } = ctx;
   const { row, doc } = loadPoster(db, posterId);
   requirePhase(doc, DESIGN_PHASES, mode === 'template' ? 'apply a template' : 'run the design loop');
-  const { palette, fonts } = resolveBrand(vault);
+  // creative (autopilot / "surprise me"): a creative-director brief whose
+  // curated palette + font pair replace the brand defaults for this design.
+  // Brand-locked orgs never reach here with a library palette — the brief
+  // already resolved to the org palette upstream (creative_director).
+  const brand = resolveBrand(vault);
+  const palette = creative?.palette || brand.palette;
+  const fonts = creative?.fonts || brand.fonts;
   const prompt = String(userPrompt || '').trim();
 
   // Art direction: one cohesive brief per poster from topic + chosen visual
@@ -511,6 +517,7 @@ async function runDesignPipelineUnlocked({ ctx, posterId, mode, templateId = nul
       ...(templateV2 ? { landscape: { canvas: buildCanvasV2(template.id, 'landscape', v2Content, palette, fonts) } } : {}),
       palette,
       fonts: { head: fonts.head, body: fonts.body },
+      ...(creative ? { creativeDirection: creativeSummary(creative) } : {}),
       reviewHistory: [],
       designedAt: new Date().toISOString()
     };
@@ -543,7 +550,19 @@ async function runDesignPipelineUnlocked({ ctx, posterId, mode, templateId = nul
   design.visualMode = vmode;
   design.artDirection = artDirection;
   design.background = background;
+  if (creative) design.creativeDirection = creativeSummary(creative);
   return finishDesignWithSubAgents({ ctx, row, doc, posterId, design });
+}
+
+/** Serializable record of a creative-director brief for the design doc. */
+function creativeSummary(creative) {
+  return {
+    paletteId: creative.paletteId || null,
+    fontPairId: creative.fontPairId || null,
+    motifs: Array.isArray(creative.motifs) ? creative.motifs : [],
+    imageStyle: creative.imageStyle || null,
+    rationale: creative.rationale || null
+  };
 }
 
 /** Poster topics for art direction: the context topic + core keywords. */

@@ -20,6 +20,7 @@ import {
   regenerateContent, submitUserFeedback, inlineEdit, getPipelineState
 } from '../../pipelines/content_pipeline.js';
 import { suggestForPoster, executeReroute } from '../../pipelines/reroute_pipeline.js';
+import { runAutoPipeline } from '../../pipelines/auto_pipeline.js';
 import { listTemplatesV2, getTemplateV2, buildCanvas } from '../../templates/v2/index.js';
 import { sampleContentFor } from '../../templates/v2/manifest_schema.js';
 import { recommendTemplate } from '../../agents/template_recommender.js';
@@ -38,6 +39,24 @@ function handle(res, next, err) {
 
 export function pipelineRouter(ctx) {
   const router = Router();
+
+  // Autopilot (one-click Auto-Create): prompt → finished designed poster with
+  // images, zero intermediate decisions. Synchronous like the other pipeline
+  // handlers (localhost + SSE progress); the response carries the decisions
+  // the autopilot made so the UI can narrate them. body { prompt }.
+  router.post('/auto', async (req, res, next) => {
+    try {
+      const { prompt } = req.body || {};
+      if (typeof prompt !== 'string' || !prompt.trim()) {
+        return res.status(400).json({ error: 'prompt must be a non-empty string' });
+      }
+      if (prompt.length > MAX_PROMPT_LENGTH) {
+        return res.status(400).json({ error: `prompt must be at most ${MAX_PROMPT_LENGTH} characters` });
+      }
+      const result = await runAutoPipeline({ ctx, prompt });
+      res.json(result);
+    } catch (err) { handle(res, next, err); }
+  });
 
   // v2 template gallery (Phase O4): poster-independent — registered BEFORE
   // any /:posterId route so 'templates' can never be captured as a posterId.
