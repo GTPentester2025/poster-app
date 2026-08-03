@@ -19,6 +19,7 @@ import { tagImage } from '../../agents/image_tagger.js';
 import { generateAsset } from '../../agents/image_generator.js';
 import { checkZeroText } from '../../agents/image_text_gate.js';
 import { resolveBrand } from '../../templates/palette.js';
+import { ALL_PRESETS, getPresetById } from '../../data/background-presets.js';
 
 const HERE = fileURLToPath(new URL('.', import.meta.url));
 const DEFAULT_ASSETS_DIR = join(HERE, '..', '..', 'image-library', 'assets');
@@ -474,6 +475,58 @@ export function imagesRouter(ctx, assetsDir = DEFAULT_ASSETS_DIR) {
       }
       const state = await generateForSlots({ ctx, posterId, slotIds, assetsDir });
       res.json(state);
+    } catch (err) { handle(res, next, err); }
+  });
+
+  // ── Background presets ───────────────────────────────────────────────────
+  // GET /api/images/backgrounds/presets
+  // Returns the full catalog of corporate background presets (gradients,
+  // patterns, and textures) that the UI renders as clickable preview tiles.
+  // Each preset includes a name, category, gradient CSS, colour palette,
+  // treatment, and a generation prompt. No DB access — static data.
+  router.get('/backgrounds/presets', (_req, res) => {
+    res.json({ presets: ALL_PRESETS });
+  });
+
+  // ── Apply background to poster ───────────────────────────────────────────
+  // POST /api/images/backgrounds/apply-to-poster
+  // body { posterId: string, imageId: string }
+  // Assigns a library background (by imageId) to the bg slot of a poster.
+  // Delegates to the existing slot-fill pipeline with source='library'.
+  // Returns the updated poster state with the new background assigned.
+  // Errors: POSTER_NOT_FOUND (404), IMAGE_NOT_FOUND (404), and standard
+  // slot-fill errors.
+  router.post('/backgrounds/apply-to-poster', async (req, res, next) => {
+    try {
+      const { posterId, imageId } = req.body || {};
+
+      if (!posterId || typeof posterId !== 'string' || !posterId.trim()) {
+        return res.status(400).json({ error: 'posterId must be a non-empty string' });
+      }
+      if (!imageId || typeof imageId !== 'string' || !imageId.trim()) {
+        return res.status(400).json({ error: 'imageId must be a non-empty string' });
+      }
+
+      // Verify poster exists
+      const poster = ctx.db.prepare('SELECT poster_id FROM posters WHERE poster_id = ?').get(posterId);
+      if (!poster) {
+        return res.status(404).json({ error: 'POSTER_NOT_FOUND', message: `Poster ${posterId} not found` });
+      }
+
+      // Verify image exists and is a background
+      const image = ctx.db.prepare('SELECT * FROM images WHERE image_id = ?').get(imageId);
+      if (!image) {
+        return res.status(404).json({ error: 'IMAGE_NOT_FOUND', message: `Image ${imageId} not found` });
+      }
+
+      // Assign the background to the poster's bg slot
+      const state = await generateForSlot({
+        ctx, posterId, slotId: 'bg', source: 'library', imageId,
+        userPrompt: '', customPrompt: '', treatmentOverride: '',
+        assetsDir
+      });
+
+      res.json({ ok: true, poster: state });
     } catch (err) { handle(res, next, err); }
   });
 

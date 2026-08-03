@@ -1,0 +1,715 @@
+/* ── Backgrounds & Patterns page — corporate redesign ────────────────────────
+   Purpose: preset grid, category tabs, apply-to-poster modal, loading
+   skeletons, error states, and responsive layouts. Complements base.css. */
+
+/* ── Page layout ──────────────────────────────────────────────────────────── */
+.bg-studio-page {
+  max-width: 1160px;
+}
+
+.bg-section {
+  margin-bottom: 36px;
+}
+
+.bg-section-title {
+  font-family: var(--font-head);
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin: 0 0 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.bg-section-title::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+  margin-left: 2px;
+}
+
+/* ── Category tabs ───────────────────────────────────────────────────────── */
+.bg-cat-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.bg-cat-tab {
+  padding: 7px 16px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 600;
+  background: var(--bg2);
+  border: 1px solid var(--line);
+  color: var(--muted);
+  cursor: pointer;
+  transition: color 0.15s ease-out, border-color 0.15s ease-out,
+    background-color 0.15s ease-out, transform 0.12s ease-out;
+}
+
+.bg-cat-tab:hover {
+  color: var(--text);
+  border-color: var(--muted);
+}
+
+.bg-cat-tab.active {
+  color: var(--gold);
+  border-color: var(--gold);
+  background: rgba(227, 175, 50, 0.08);
+}
+
+/* ── Preset grid ─────────────────────────────────────────────────────────── */
+.bg-preset-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(155px, 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.bg-preset-card {
+  position: relative;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  cursor: pointer;
+  transition: border-color 0.15s ease-out, box-shadow 0.18s ease-out,
+    transform 0.14s ease-out;
+  aspect-ratio: 16 / 10;
+}
+
+.bg-preset-card:hover {
+  border-color: var(--gold);
+  box-shadow: var(--shadow-1), 0 0 0 1px rgba(227, 175, 50, 0.2);
+  transform: translateY(-2px);
+}
+
+.bg-preset-card:active {
+  transform: translateY(0) scale(0.985);
+}
+
+.bg-preset-preview {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  inset: 0;
+}
+
+.bg-preset-label {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 6px 10px;
+  background: linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.7) 100%);
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #fff;
+  text-align: center;
+  letter-spacing: 0.3px;
+  line-height: 1.3;
+}
+
+.bg-preset-card--generating {
+  pointer-events: none;
+}
+
+.bg-preset-card--generating .bg-preset-label {
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+.bg-preset-card--generating::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.35);
+  z-index: 1;
+}
+
+.bg-preset-spinner {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 24px;
+  height: 24px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-top-color: var(--gold);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  z-index: 2;
+  display: none;
+}
+
+.bg-preset-card--generating .bg-preset-spinner {
+  display: block;
+}
+
+/* ── Generator card ──────────────────────────────────────────────────────── */
+.bg-gen-card {
+  margin-bottom: 32px;
+}
+
+.bg-gen-card h2 {
+  margin: 0 0 16px;
+}
+
+.bg-treatment-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.bg-treatment-label {
+  font-size: 13px;
+  color: var(--muted);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.bg-seg-ctrl {
+  display: flex;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.bg-seg-btn {
+  padding: 7px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  background: var(--bg2);
+  border: none;
+  border-right: 1px solid var(--line);
+  border-radius: 0;
+  cursor: pointer;
+  transition: color 0.14s ease-out, background-color 0.14s ease-out;
+}
+
+.bg-seg-btn:last-child {
+  border-right: none;
+}
+
+.bg-seg-btn:hover {
+  color: var(--text);
+  background: var(--card);
+}
+
+.bg-seg-btn.active {
+  color: var(--gold);
+  background: rgba(227, 175, 50, 0.10);
+}
+
+.bg-prompt-label {
+  font-size: 13px;
+  color: var(--muted);
+  font-weight: 500;
+  margin-bottom: 0;
+}
+
+.bg-prompt-input {
+  min-height: 80px;
+  resize: vertical;
+  margin-top: 6px;
+}
+
+.bg-char-count {
+  display: block;
+  text-align: right;
+  font-size: 11.5px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  margin-top: 4px;
+  margin-bottom: 14px;
+}
+
+.bg-similar-label {
+  font-size: 13px;
+  color: var(--muted);
+  font-weight: 500;
+  margin-bottom: 16px;
+}
+
+.bg-similar-label select {
+  margin-top: 6px;
+}
+
+.bg-gen-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+
+/* ── Preview ─────────────────────────────────────────────────────────────── */
+.bg-preview {
+  margin-top: 20px;
+  display: flex;
+  gap: 18px;
+  align-items: flex-start;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 14px;
+}
+
+.bg-preview-img {
+  width: 200px;
+  height: auto;
+  border-radius: 8px;
+  flex-shrink: 0;
+  border: 1px solid var(--line);
+  object-fit: cover;
+}
+
+.bg-preview-meta {
+  flex: 1;
+  min-width: 0;
+}
+
+.bg-preview-desc {
+  font-size: 13.5px;
+  color: var(--text);
+  margin: 0 0 10px;
+  line-height: 1.5;
+}
+
+.bg-preview-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-bottom: 10px;
+}
+
+.bg-preview-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* ── Library section ─────────────────────────────────────────────────────── */
+.bg-library-section {
+  margin-top: 8px;
+}
+
+.bg-library-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.bg-library-header h2 {
+  margin: 0;
+}
+
+/* Library category tabs */
+.bg-lib-cat-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 12px 0 16px;
+}
+
+.bg-lib-cat-tab {
+  padding: 7px 16px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 600;
+  background: var(--bg2);
+  border: 1px solid var(--line);
+  color: var(--muted);
+  cursor: pointer;
+  transition: color 0.15s ease-out, border-color 0.15s ease-out,
+    background-color 0.15s ease-out, transform 0.12s ease-out;
+}
+
+.bg-lib-cat-tab:hover {
+  color: var(--text);
+  border-color: var(--muted);
+}
+
+.bg-lib-cat-tab.active {
+  color: var(--gold);
+  border-color: var(--gold);
+  background: rgba(227, 175, 50, 0.08);
+}
+
+/* Library grid */
+.bg-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 18px;
+  margin-top: 16px;
+}
+
+.bg-lib-card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+  transition: border-color 0.15s ease-out, box-shadow 0.15s ease-out;
+}
+
+.bg-lib-card:hover {
+  border-color: var(--muted);
+  box-shadow: var(--shadow-1);
+}
+
+.bg-lib-thumb {
+  width: 100%;
+  height: 160px;
+  object-fit: cover;
+  display: block;
+  background: var(--bg2);
+}
+
+.bg-lib-info {
+  padding: 12px 14px 14px;
+}
+
+.bg-lib-desc {
+  font-size: 13px;
+  color: var(--text);
+  margin: 0 0 8px;
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.bg-lib-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+
+.bg-lib-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.bg-lib-btn-similar {
+  flex: 1;
+  padding: 6px 10px;
+  font-size: 12.5px;
+  font-weight: 600;
+  background: var(--bg2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+  cursor: pointer;
+  transition: border-color 0.14s ease-out, color 0.14s ease-out;
+}
+
+.bg-lib-btn-similar:hover {
+  border-color: var(--gold);
+  color: var(--gold);
+}
+
+.bg-lib-btn-delete {
+  padding: 6px 10px;
+  font-size: 12.5px;
+  font-weight: 600;
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+  cursor: pointer;
+  transition: border-color 0.14s ease-out, color 0.14s ease-out, background 0.14s ease-out;
+}
+
+.bg-lib-btn-delete:hover {
+  border-color: var(--danger);
+  color: var(--danger);
+  background: rgba(200, 16, 46, 0.08);
+}
+
+.bg-lib-btn-apply {
+  padding: 6px 10px;
+  font-size: 12.5px;
+  font-weight: 600;
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+  cursor: pointer;
+  transition: border-color 0.14s ease-out, color 0.14s ease-out;
+}
+
+.bg-lib-btn-apply:hover {
+  border-color: var(--gold);
+  color: var(--gold);
+}
+
+/* ── Tag chip ────────────────────────────────────────────────────────────── */
+.bg-tag-chip {
+  display: inline-block;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: var(--bg2);
+  border: 1px solid var(--line);
+  font-size: 11px;
+  color: var(--muted);
+}
+
+/* ── Loading Skeletons ───────────────────────────────────────────────────── */
+@keyframes skeleton-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.bg-skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--card) 25%,
+    var(--bg2) 50%,
+    var(--card) 75%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s ease-in-out infinite;
+  border-radius: var(--radius-sm);
+}
+
+.bg-skeleton-preset {
+  aspect-ratio: 16 / 10;
+}
+
+.bg-skeleton-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(155px, 1fr));
+  gap: 12px;
+}
+
+.bg-skeleton-library {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 18px;
+}
+
+.bg-skeleton-lib-card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.bg-skeleton-lib-thumb {
+  width: 100%;
+  height: 160px;
+}
+
+.bg-skeleton-lib-body {
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.bg-skeleton-lib-line {
+  height: 13px;
+  border-radius: 4px;
+}
+
+.bg-skeleton-lib-line:last-child {
+  width: 55%;
+}
+
+/* ── Apply-to-poster modal ──────────────────────────────────────────────── */
+.bg-apply-modal .modal-inner {
+  max-width: 520px;
+}
+
+.bg-apply-poster-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 340px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+  margin: 12px 0;
+}
+
+.bg-apply-poster-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--bg2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: border-color 0.15s ease-out, background-color 0.15s ease-out;
+}
+
+.bg-apply-poster-item:hover {
+  border-color: var(--gold);
+  background: rgba(227, 175, 50, 0.05);
+}
+
+.bg-apply-poster-item:active {
+  transform: scale(0.99);
+}
+
+.bg-apply-poster-name {
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--text);
+  flex: 1;
+}
+
+.bg-apply-poster-meta {
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+.bg-apply-poster-arrow {
+  color: var(--gold);
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+/* ── Error states ────────────────────────────────────────────────────────── */
+.bg-error-bar {
+  background: rgba(200, 16, 46, 0.08);
+  border: 1px solid var(--red);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  margin: 12px 0;
+  font-size: 13px;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.bg-error-bar .bg-error-icon {
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.bg-error-bar .bg-error-msg {
+  flex: 1;
+}
+
+.bg-error-bar .bg-error-retry {
+  flex-shrink: 0;
+  padding: 5px 12px;
+  font-size: 12px;
+  border-radius: 999px;
+  background: transparent;
+  border: 1px solid var(--red);
+  color: var(--red);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.bg-error-bar .bg-error-retry:hover {
+  background: var(--red);
+  color: #fff;
+}
+
+/* ── Status states ───────────────────────────────────────────────────────── */
+.bg-gen-status {
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.bg-gen-status.ok {
+  color: var(--success);
+}
+
+.bg-gen-status.err {
+  color: var(--danger);
+}
+
+.bg-gen-status.warn {
+  color: var(--amber);
+}
+
+/* ── Empty states ────────────────────────────────────────────────────────── */
+.bg-empty-preset {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 32px 20px;
+  color: var(--muted);
+  font-size: 13.5px;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius);
+}
+
+/* ── Progress bar for generation ─────────────────────────────────────────── */
+.bg-progress-wrap {
+  margin: 10px 0;
+}
+
+.bg-progress-bar {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--line);
+  overflow: hidden;
+}
+
+.bg-progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--gold), #f0d47a);
+  transition: width 0.3s ease-out;
+}
+
+.bg-progress-label {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 4px;
+  text-align: right;
+}
+
+/* ── Spin animation ──────────────────────────────────────────────────────── */
+@keyframes spin {
+  to { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+/* ── Responsive ──────────────────────────────────────────────────────────── */
+@media (max-width: 700px) {
+  .bg-preview {
+    flex-direction: column;
+  }
+
+  .bg-preview-img {
+    width: 100%;
+    height: 140px;
+  }
+
+  .bg-treatment-group {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .bg-preset-grid {
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 8px;
+  }
+
+  .bg-gen-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .bg-gen-row button {
+    width: 100%;
+  }
+}

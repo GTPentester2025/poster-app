@@ -30,6 +30,17 @@ export const FEEDS = [
   { id: 'unit42', name: 'Palo Alto Unit 42', url: 'https://unit42.paloaltonetworks.com/feed/', site: 'unit42.paloaltonetworks.com', icon: '🔥', tier: 2 },
   { id: 'mandiant', name: 'Mandiant (Google)', url: 'https://www.mandiant.com/resources/blog/rss.xml', urlAlternatives: ['https://www.mandiant.com/resources/blog?format=rss'], site: 'mandiant.com', icon: '🔴', tier: 2 },
 
+  // ── Indian Regulators & Anti-Phishing ──
+  { id: 'apwg', name: 'APWG', url: 'https://apwg.org/feed/', site: 'apwg.org', icon: '🎣', tier: 2 },
+  { id: 'dsci', name: 'DSCI India', url: 'https://dsci.in/feed/', site: 'dsci.in', icon: '🇮🇳', tier: 2 },
+  { id: 'nciipc', name: 'NCIIPC (India)', url: 'https://nciipc.gov.in/rss.xml', urlAlternatives: ['https://www.nciipc.gov.in/rss.xml'], site: 'nciipc.gov.in', icon: '🇮🇳', tier: 2 },
+  { id: 'meity', name: 'MeitY (India)', url: 'https://www.meity.gov.in/rss', urlAlternatives: ['https://meity.gov.in/rss'], site: 'meity.gov.in', icon: '🇮🇳', tier: 2 },
+  { id: 'phishlabs', name: 'PhishLabs (Fortra)', url: 'https://www.phishlabs.com/blog/feed/', site: 'phishlabs.com', icon: '🎣', tier: 2 },
+  { id: 'abnormal', name: 'Abnormal Security Blog', url: 'https://abnormalsecurity.com/blog/feed/', urlAlternatives: ['https://www.abnormalsecurity.com/blog/rss.xml'], site: 'abnormalsecurity.com', icon: '🔐', tier: 2 },
+  { id: 'irdai', name: 'IRDAI (India)', url: 'https://www.irdai.gov.in/rss', urlAlternatives: ['https://irdai.gov.in/rss'], site: 'irdai.gov.in', icon: '🇮🇳', tier: 2 },
+  { id: 'sebi', name: 'SEBI Circulars (India)', url: 'https://www.sebi.gov.in/sebirss.aspx', site: 'sebi.gov.in', icon: '🇮🇳', tier: 2 },
+  { id: 'rbi', name: 'RBI Press Releases (India)', url: 'https://rbi.org.in/scripts/rss.aspx', urlAlternatives: ['https://www.rbi.org.in/scripts/rss.aspx'], site: 'rbi.org.in', icon: '🇮🇳', tier: 2 },
+
   // ══ TIER 3: Security Journalism & Awareness ══
   { id: 'bleeping', name: 'Bleeping Computer', url: 'https://www.bleepingcomputer.com/feed/', site: 'bleepingcomputer.com', icon: '💻', tier: 3 },
   { id: 'hackernews', name: 'The Hacker News', url: 'https://feeds.feedburner.com/TheHackersNews', site: 'thehackernews.com', icon: '🔐', tier: 3 },
@@ -43,7 +54,8 @@ export const FEEDS = [
   { id: 'malwarebytes', name: 'Malwarebytes Blog', url: 'https://www.malwarebytes.com/blog/feed', site: 'malwarebytes.com', icon: '🧹', tier: 3 },
   { id: 'helpnet', name: 'Help Net Security', url: 'https://www.helpnetsecurity.com/feed/', site: 'helpnetsecurity.com', icon: '🌐', tier: 3 },
   { id: 'csoonline', name: 'CSO Online', url: 'https://www.csoonline.com/feed/', site: 'csoonline.com', icon: '🏢', tier: 3 },
-  { id: 'phishtank', name: 'PhishTank Blog', url: 'https://www.phishtank.com/blog/feed/', urlAlternatives: ['https://phishtank.org/blog/feed/'], site: 'phishtank.com', icon: '🎣', tier: 3 }
+  { id: 'phishtank', name: 'PhishTank Blog', url: 'https://www.phishtank.com/blog/feed/', urlAlternatives: ['https://phishtank.org/blog/feed/'], site: 'phishtank.com', icon: '🎣', tier: 3 },
+  { id: 'secaffairs', name: 'Security Affairs', url: 'https://securityaffairs.com/feed', urlAlternatives: ['https://securityaffairs.co/wordpress/feed'], site: 'securityaffairs.com', icon: '🔐', tier: 3 }
 ];
 
 // ── URL normalization helpers (ported unchanged) ──

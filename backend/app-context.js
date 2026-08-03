@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { EventBus } from '#shared';
 import { GateEngine, Harness } from '#orchestration';
 import { openDb } from './db.js';
-import { seedIfAbsent } from './seed-db.js';
+import { seedIfAbsent, seedKnowledge, seedImageLibrary } from './seed-db.js';
 import { Vault } from '../masking/vault.js';
 import { MaskingEgress } from '../masking/egress.js';
 
@@ -20,11 +20,17 @@ export function createAppContext({
   egress: egressOverride = null // tests inject a fake egress here (no SDK/vault touch)
 } = {}) {
   const runtimePath = dbPath || join(dataDir, 'poster-app.sqlite');
-  // Fresh checkout/deploy: copy the committed read-only seed into place so the
-  // shipped poster library is present on first run. No-op if a runtime DB
-  // already exists (existing data preserved) or no seed is present (tests).
-  seedIfAbsent(runtimePath, join(dataDir, 'poster-seed.sqlite'));
+  // Fresh checkout/deploy: copy the committed read-only poster seed into place
+  // so the shipped poster library is present on first run. Then merge knowledge
+  // and image-library seeds into the runtime DB (ATTACH, idempotent).
+  // No-op if a runtime DB already exists or no seeds are present.
+  const seeded = seedIfAbsent(runtimePath, join(dataDir, 'poster-seed.sqlite'));
   const db = openDb(runtimePath);
+  // Merge knowledge + image seeds (after DB is open so WAL mode is active)
+  if (seeded) {
+    seedKnowledge(runtimePath, join(dataDir, 'knowledge-seed.sqlite'));
+    seedImageLibrary(runtimePath, join(dataDir, 'image-library-seed.sqlite'));
+  }
   const bus = new EventBus({ logDir, db });
   const vault = new Vault({ db });
   const egress = egressOverride || new MaskingEgress({ vault, bus, db, transports });

@@ -72,6 +72,26 @@ import samPolicyNumbered from './sam_policy_numbered.js';
 import fossPolicyFlyer from './foss_policy_flyer.js';
 import incidentPolicySeverity from './incident_policy_severity.js';
 import constellationBeforeAfter from './constellation_before_after.js';
+// O10 enterprise corporate family
+import executiveBriefing from './executive_briefing.js';
+import riskHeatmap from './risk_heatmap.js';
+import complianceCertificate from './compliance_certificate.js';
+import trainingModule from './training_module.js';
+import policySummary from './policy_summary.js';
+import governancePillars from './governance_pillars.js';
+import auditTrail from './audit_trail.js';
+import securityPledge from './security_pledge.js';
+import incidentTimeline from './incident_timeline.js';
+import microLearning from './micro_learning.js';
+import dataClassification from './data_classification.js';
+// O11 infographic/analytics family
+import threatLandscape from './threat_landscape.js';
+import securityCalendar from './security_calendar.js';
+import phishingDrill from './phishing_drill.js';
+import breachCost from './breach_cost.js';
+import privacyRights from './privacy_rights.js';
+import mfaJourney from './mfa_journey.js';
+import securityStack from './security_stack.js';
 import { validateManifest } from './manifest_schema.js';
 import {
   canvasDims, ORIENTATIONS, PORTRAIT_W, PORTRAIT_H, LANDSCAPE_W, LANDSCAPE_H
@@ -144,8 +164,26 @@ const TEMPLATES_V2 = [
   samPolicyNumbered,
   fossPolicyFlyer,
   incidentPolicySeverity,
-  constellationBeforeAfter
-];
+  constellationBeforeAfter,
+  executiveBriefing,
+  riskHeatmap,
+  complianceCertificate,
+  trainingModule,
+  policySummary,
+  governancePillars,
+  auditTrail,
+  securityPledge,
+  incidentTimeline,
+  microLearning,
+  dataClassification,
+    threatLandscape,
+    securityCalendar,
+    phishingDrill,
+    breachCost,
+    privacyRights,
+    mfaJourney,
+    securityStack
+  ];
 
 // fail-loud load-time validation: bad manifests never reach the gallery
 {

@@ -608,7 +608,8 @@ async function retryDesignUnlocked({ ctx, posterId, userPrompt = '' }) {
       prompt: `${designTopics(doc).join(', ')} — the user rejected "${doc.design.templateId}" and wants a noticeably different design.${prompt ? ` Instructions: ${prompt}` : ''}`,
       templates: candidates.map((t) => ({
         id: t.id, name: t.name, style: t.style, kind: t.contentSchema.blocks.kind, description: t.description
-      }))
+      })),
+      db: ctx.db, posterId
     });
     bus.emit({
       runId: doc.runId, project: PROJECT, pipeline: PIPELINE, stage: 'design-selection',

@@ -81,8 +81,8 @@ export function pipelineRouter(ctx) {
         id: t.id, name: t.name, style: t.style, kind: t.contentSchema.blocks.kind, description: t.description
       }));
       const { templateId, reason } = await recommendTemplate({
-        egress: ctx.egress, runId: 'template-reco', prompt: prompt.trim(), templates
-      });
+              egress: ctx.egress, runId: 'template-reco', prompt: prompt.trim(), templates, db: ctx.db
+            });
       const chosen = templates.find((t) => t.id === templateId) || null;
       res.json({ templateId, name: chosen ? chosen.name : templateId, reason });
     } catch (err) { handle(res, next, err); }

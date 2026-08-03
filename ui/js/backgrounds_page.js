@@ -1,16 +1,30 @@
-// Backgrounds & Patterns page — standalone background generator + library.
-// Reads GET /api/images?kind=background (library grid) and calls
-// POST /api/images/generate-background (generate new backgrounds).
-// Auto-generates 1 gradient + 1 pattern on first visit when the library holds
-// fewer than 2 backgrounds (sessionStorage guard 'bgAutogenDone' — at most
-// once per session). All values rendered via textContent (XSS discipline).
+// Backgrounds & Patterns page — preset gallery + custom generator + library.
+// Presets: GET via window.BACKGROUND_PRESETS (presets loaded from data/background-presets.js)
+// Library: GET /api/images?kind=background; POST /api/images/generate-background
+// Apply: GET /api/posters; POST /api/posters/:posterId/apply-background
+// XSS: all values rendered via textContent.
 
 (function () {
   'use strict';
 
   const $ = (id) => document.getElementById(id);
 
-  // ── API helper ───────────────────────────────────────────────────────────────
+  // ── Presets & Library data ───────────────────────────────────────────────────
+
+  let PRESETS = [];
+  let currentPresets = [];
+  let currentCategoryFilter = 'all';
+
+  let allLibraryImages = [];
+  let currentLibraryFilter = 'all';
+
+  function loadPresets() {
+    if (!window.BACKGROUND_PRESETS) return;
+    PRESETS = window.BACKGROUND_PRESETS.ALL_PRESETS || [];
+    currentPresets = PRESETS;
+  }
+
+  // ── API helper ────────────────────────────────────────────────────────────────
 
   async function api(path, method, body) {
     const opts = window.authOptions({
@@ -33,6 +47,225 @@
       throw err;
     }
     return res.json();
+  }
+
+  // ── Loading skeletons ─────────────────────────────────────────────────────────
+
+  function showPresetSkeleton() {
+    const skeleton = $('bgPresetSkeleton');
+    if (skeleton) skeleton.classList.remove('hidden');
+  }
+
+  function hidePresetSkeleton() {
+    const skeleton = $('bgPresetSkeleton');
+    if (skeleton) skeleton.classList.add('hidden');
+  }
+
+  function showLibrarySkeleton() {
+    const skeleton = $('bgLibrarySkeleton');
+    if (skeleton) skeleton.classList.remove('hidden');
+  }
+
+  function hideLibrarySkeleton() {
+    const skeleton = $('bgLibrarySkeleton');
+    if (skeleton) skeleton.classList.add('hidden');
+  }
+
+  function showApplyPosterSkeleton() {
+    const skeleton = $('bgApplyPosterSkeleton');
+    if (skeleton) skeleton.classList.remove('hidden');
+  }
+
+  function hideApplyPosterSkeleton() {
+    const skeleton = $('bgApplyPosterSkeleton');
+    if (skeleton) skeleton.classList.add('hidden');
+  }
+
+  // ── Error messages ────────────────────────────────────────────────────────────
+
+  function showError(msg, retryFn) {
+    const bar = $('bgErrorBar');
+    const msgEl = $('bgErrorMsg');
+    const retryBtn = $('bgErrorRetry');
+    msgEl.textContent = msg;
+    bar.classList.remove('hidden');
+    if (retryFn) {
+      retryBtn.onclick = () => {
+        bar.classList.add('hidden');
+        retryFn();
+      };
+      retryBtn.classList.remove('hidden');
+    } else {
+      retryBtn.classList.add('hidden');
+    }
+  }
+
+  function hideError() {
+    $('bgErrorBar').classList.add('hidden');
+  }
+
+  // ── Presets: category tabs & grid ─────────────────────────────────────────────
+
+  function renderCategoryTabs() {
+    const tabsContainer = $('bgCatTabs');
+    if (!tabsContainer) return;
+    tabsContainer.textContent = '';
+
+    const categories = [
+      { id: 'all', label: 'All Presets' },
+      { id: 'gradient', label: 'Corporate Gradients' },
+      { id: 'pattern', label: 'Geometric Patterns' },
+      { id: 'texture', label: 'Subtle Textures' }
+    ];
+
+    for (const cat of categories) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'bg-cat-tab';
+      btn.dataset.category = cat.id;
+      btn.textContent = cat.label;
+      btn.setAttribute('role', 'tab');
+      btn.setAttribute('aria-selected', cat.id === 'all' ? 'true' : 'false');
+      btn.addEventListener('click', () => {
+        tabsContainer.querySelectorAll('.bg-cat-tab').forEach((b) => {
+          b.classList.remove('active');
+          b.setAttribute('aria-selected', 'false');
+        });
+        btn.classList.add('active');
+        btn.setAttribute('aria-selected', 'true');
+        filterPresetsByCategory(cat.id);
+      });
+      if (cat.id === 'all') btn.classList.add('active');
+      tabsContainer.appendChild(btn);
+    }
+  }
+
+  function filterPresetsByCategory(categoryId) {
+    currentCategoryFilter = categoryId;
+    if (categoryId === 'all') {
+      currentPresets = PRESETS;
+    } else {
+      currentPresets = PRESETS.filter((p) => p.category === categoryId);
+    }
+    renderPresetGrid();
+  }
+
+  function renderPresetGrid() {
+    const grid = $('bgPresetGrid');
+    const empty = $('bgPresetEmpty');
+    if (!grid) return;
+
+    // Remove skeleton if present (it's a child)
+    const skeleton = $('bgPresetSkeleton');
+    if (skeleton && grid.contains(skeleton)) {
+      hidePresetSkeleton();
+    }
+
+    // Clear existing preset cards (but keep skeleton)
+    grid.querySelectorAll('.bg-preset-card').forEach((el) => el.remove());
+
+    if (!currentPresets.length) {
+      empty.classList.remove('hidden');
+      return;
+    }
+    empty.classList.add('hidden');
+
+    for (const preset of currentPresets) {
+      const card = buildPresetCard(preset);
+      grid.appendChild(card);
+    }
+  }
+
+  function buildPresetCard(preset) {
+    const card = document.createElement('div');
+    card.className = 'bg-preset-card';
+    card.dataset.presetId = preset.id;
+
+    // Gradient preview (or solid for patterns/textures)
+    const preview = document.createElement('div');
+    preview.className = 'bg-preset-preview';
+    if (preset.treatment === 'gradient' && preset.gradient) {
+      preview.style.background = preset.gradient;
+    } else if (preset.colors && preset.colors.length >= 2) {
+      preview.style.background = `linear-gradient(135deg, ${preset.colors[0]} 0%, ${preset.colors[1]} 100%)`;
+    } else if (preset.colors && preset.colors.length === 1) {
+      preview.style.background = preset.colors[0];
+    }
+    card.appendChild(preview);
+
+    // Name label
+    const label = document.createElement('div');
+    label.className = 'bg-preset-label';
+    label.textContent = preset.name;
+    card.appendChild(label);
+
+    // Click to use
+    card.addEventListener('click', () => applyPreset(preset));
+
+    return card;
+  }
+
+  function applyPreset(preset) {
+    hideError();
+    // Auto-fill prompt and treatment
+    $('bgPromptInput').value = preset.prompt;
+    const treatmentCtrl = $('treatmentCtrl');
+    treatmentCtrl.querySelectorAll('.bg-seg-btn').forEach((btn) => {
+      const isActive = btn.dataset.treatment === preset.treatment;
+      btn.classList.toggle('active', isActive);
+      btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+    });
+    currentTreatment = preset.treatment;
+    // Generate
+    generate({ treatment: preset.treatment, prompt: preset.prompt });
+  }
+
+  // ── Library: category tabs & filtering ──────────────────────────────────────
+
+  function renderLibraryCategoryTabs() {
+    const tabsContainer = $('bgLibCatTabs');
+    if (!tabsContainer) return;
+    tabsContainer.textContent = '';
+
+    const treatments = [
+      { id: 'all', label: 'All' },
+      { id: 'gradient', label: 'Gradients' },
+      { id: 'pattern', label: 'Patterns' },
+      { id: 'texture', label: 'Textures' }
+    ];
+
+    for (const treatment of treatments) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'bg-lib-cat-tab';
+      btn.dataset.treatment = treatment.id;
+      btn.textContent = treatment.label;
+      btn.setAttribute('role', 'tab');
+      btn.setAttribute('aria-selected', treatment.id === 'all' ? 'true' : 'false');
+      btn.addEventListener('click', () => {
+        tabsContainer.querySelectorAll('.bg-lib-cat-tab').forEach((b) => {
+          b.classList.remove('active');
+          b.setAttribute('aria-selected', 'false');
+        });
+        btn.classList.add('active');
+        btn.setAttribute('aria-selected', 'true');
+        filterLibraryByTreatment(treatment.id);
+      });
+      if (treatment.id === 'all') btn.classList.add('active');
+      tabsContainer.appendChild(btn);
+    }
+  }
+
+  function filterLibraryByTreatment(treatmentId) {
+    currentLibraryFilter = treatmentId;
+    let filtered = allLibraryImages;
+    if (treatmentId !== 'all') {
+      filtered = allLibraryImages.filter((img) => {
+        const meta = img.meta || {};
+        return meta.treatment === treatmentId;
+      });
+    }
+    renderLibrary(filtered);
   }
 
   // ── Treatment segmented control ───────────────────────────────────────────────
@@ -67,19 +300,23 @@
   // ── Library: load & render ───────────────────────────────────────────────────
 
   async function loadLibrary() {
-    $('bgLibraryStatus').textContent = 'Loading…';
+    showLibrarySkeleton();
     let images = [];
     try {
       const data = await api('/api/images?kind=background');
       images = data.images || [];
     } catch (err) {
       if (err.code !== 'UNAUTHORIZED') {
-        $('bgLibraryStatus').textContent = 'Failed to load library.';
+        showError('Failed to load library. ' + err.message, () => loadLibrary());
       }
+      hideLibrarySkeleton();
       return images;
     }
+    allLibraryImages = images;
+    currentLibraryFilter = 'all';
+    renderLibraryCategoryTabs();
     renderLibrary(images);
-    $('bgLibraryStatus').textContent = '';
+    hideLibrarySkeleton();
     return images;
   }
 
@@ -109,7 +346,6 @@
     card.className = 'bg-lib-card';
     card.dataset.imageId = img.image_id;
 
-    // Thumbnail
     const thumb = document.createElement('img');
     thumb.className = 'bg-lib-thumb';
     thumb.alt = description || 'Background image';
@@ -117,7 +353,6 @@
     thumb.loading = 'lazy';
     card.appendChild(thumb);
 
-    // Info section
     const info = document.createElement('div');
     info.className = 'bg-lib-info';
 
@@ -138,7 +373,6 @@
       info.appendChild(tagsRow);
     }
 
-    // Actions
     const actions = document.createElement('div');
     actions.className = 'bg-lib-actions';
 
@@ -166,7 +400,6 @@
 
   function populateSimilarPicker(images) {
     const sel = $('bgSimilarSelect');
-    // Keep first default option
     while (sel.options.length > 1) sel.remove(1);
     for (const img of images) {
       const meta = img.meta || {};
@@ -183,6 +416,7 @@
   async function generate({ treatment, prompt, similarTo } = {}) {
     const btn = $('bgGenerateBtn');
     const status = $('bgGenStatus');
+    hideError();
 
     btn.classList.add('is-loading');
     btn.disabled = true;
@@ -200,7 +434,6 @@
       showPreview(img);
       status.textContent = 'Generated successfully.';
       status.className = 'status ok';
-      // Reload library to include the new image
       const images = await loadLibrary();
       populateSimilarPicker(images);
     } catch (err) {
@@ -222,6 +455,7 @@
     $('bgPreviewImg').src = `/api/images/file/${img.image_id}`;
     $('bgPreviewImg').alt = description || 'Generated background';
     $('bgPreviewDesc').textContent = description;
+    $('bgPreviewImg').dataset.imageId = img.image_id;
 
     const tagsEl = $('bgPreviewTags');
     tagsEl.textContent = '';
@@ -236,7 +470,6 @@
   }
 
   function generateSimilar(imageId) {
-    // Pre-select in the picker and trigger generation
     const sel = $('bgSimilarSelect');
     if (sel) sel.value = imageId;
     generate({ treatment: currentTreatment, similarTo: imageId });
@@ -246,20 +479,92 @@
     try {
       await api(`/api/images/${imageId}`, 'DELETE');
       cardEl.remove();
-      // Update similar picker
       const sel = $('bgSimilarSelect');
       if (sel) {
         for (const opt of [...sel.options]) {
           if (opt.value === imageId) { opt.remove(); break; }
         }
       }
-      // Show empty state if grid is now empty
       const grid = $('bgGrid');
       if (!grid.children.length) $('bgEmpty').classList.remove('hidden');
     } catch (err) {
       if (err.code !== 'UNAUTHORIZED') {
-        $('bgLibraryStatus').textContent = `Delete failed: ${err.message}`;
-        $('bgLibraryStatus').className = 'status err';
+        showError(`Delete failed: ${err.message}`);
+      }
+    }
+  }
+
+  // ── Apply to Poster ───────────────────────────────────────────────────────────
+
+  let currentImageId = null;
+
+  function openApplyModal(imageId) {
+    currentImageId = imageId;
+    const modal = $('bgApplyModal');
+    modal.classList.remove('hidden');
+    loadPostersForApply();
+  }
+
+  function closeApplyModal() {
+    const modal = $('bgApplyModal');
+    modal.classList.add('hidden');
+    currentImageId = null;
+  }
+
+  async function loadPostersForApply() {
+    showApplyPosterSkeleton();
+    const list = $('bgApplyPosterList');
+    const empty = $('bgApplyPosterEmpty');
+    const status = $('bgApplyStatus');
+
+    list.textContent = '';
+    empty.classList.add('hidden');
+    status.textContent = '';
+
+    try {
+      const data = await api('/api/posters');
+      const posters = data.posters || [];
+      hideApplyPosterSkeleton();
+
+      if (!posters.length) {
+        empty.classList.remove('hidden');
+        return;
+      }
+
+      for (const poster of posters) {
+        const item = document.createElement('button');
+        item.type = 'button';
+        item.className = 'bg-apply-poster-item';
+        item.textContent = poster.name || `Poster ${poster.poster_id}`;
+        item.dataset.posterId = poster.poster_id;
+        item.addEventListener('click', () => applyBackgroundToPoster(poster.poster_id));
+        list.appendChild(item);
+      }
+    } catch (err) {
+      hideApplyPosterSkeleton();
+      if (err.code !== 'UNAUTHORIZED') {
+        status.textContent = `Error loading posters: ${err.message}`;
+        status.className = 'status err';
+      }
+    }
+  }
+
+  async function applyBackgroundToPoster(posterId) {
+    const status = $('bgApplyStatus');
+    if (!currentImageId) return;
+
+    status.textContent = 'Applying…';
+    status.className = 'status';
+
+    try {
+      await api(`/api/posters/${posterId}/apply-background`, 'POST', { imageId: currentImageId });
+      status.textContent = 'Background applied successfully.';
+      status.className = 'status ok';
+      setTimeout(() => closeApplyModal(), 1000);
+    } catch (err) {
+      if (err.code !== 'UNAUTHORIZED') {
+        status.textContent = `Error: ${err.message}`;
+        status.className = 'status err';
       }
     }
   }
@@ -272,7 +577,6 @@
 
     if (images.length >= 2) return;
 
-    // Generate 1 gradient + 1 pattern silently (cost guard: at most once per session)
     const status = $('bgGenStatus');
     status.textContent = 'Auto-generating starter backgrounds…';
     status.className = 'status';
@@ -284,7 +588,7 @@
     for (const spec of needed) {
       try {
         await api('/api/images/generate-background', 'POST', spec);
-      } catch { /* best effort — don't break the page */ }
+      } catch { /* best effort */ }
     }
 
     status.textContent = '';
@@ -295,6 +599,9 @@
   // ── Wiring ───────────────────────────────────────────────────────────────────
 
   function init() {
+    loadPresets();
+    renderCategoryTabs();
+    renderPresetGrid();
     initTreatmentControl();
     initCharCount();
 
@@ -309,7 +616,13 @@
       populateSimilarPicker(images);
     });
 
-    // Load library and then maybe auto-generate
+    $('bgApplyToPosterBtn').addEventListener('click', () => {
+      const imageId = $('bgPreviewImg').dataset.imageId;
+      if (imageId) openApplyModal(imageId);
+    });
+
+    $('bgApplyModalClose').addEventListener('click', closeApplyModal);
+
     loadLibrary().then((images) => {
       populateSimilarPicker(images);
       maybeAutoGenerate(images).catch(() => { /* best effort */ });
