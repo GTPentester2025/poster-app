@@ -97,6 +97,8 @@ import posterBrutal from './poster_brutal.js';
 import isoGrid from './iso_grid.js';
 import magCover from './mag_cover.js';
 import dataRing from './data_ring.js';
+import roadmapMiles from './roadmap_miles.js';
+import splitCollage from './split_collage.js';
 import { validateManifest } from './manifest_schema.js';
 import {
   canvasDims, ORIENTATIONS, PORTRAIT_W, PORTRAIT_H, LANDSCAPE_W, LANDSCAPE_H
@@ -191,7 +193,9 @@ const TEMPLATES_V2 = [
   posterBrutal,
   isoGrid,
   magCover,
-  dataRing
+  dataRing,
+  roadmapMiles,
+  splitCollage
 ];
 
 // fail-loud load-time validation: bad manifests never reach the gallery
