@@ -147,3 +147,38 @@ export async function directCreative({
   } catch { /* model/parse failure → deterministic brief */ }
   return fallback;
 }
+
+/**
+ * Diversify one brief into up to `count` candidate briefs for the autopilot's
+ * compile-and-judge step. Candidate 1 is the brief itself; the others rotate
+ * through mood-matched palettes, font pairs and alternative templates from
+ * `templates` (already filtered to schema-compatible ones by the caller).
+ * Deterministic — template compiles are free, the judge (poster-linter)
+ * decides. brandLocked keeps the org palette on every candidate.
+ */
+export function candidateBriefs(brief, { topic = '', format = '', templates = [], brand, brandLocked = false, count = 3 }) {
+  const safeBrand = brand && brand.palette && brand.fonts ? brand : { palette: brief.palette, fonts: brief.fonts };
+  const moods = moodsForTopic(topic, format);
+  const palettes = palettesForMoods(moods).filter((p) => p.id !== brief.paletteId);
+  const pairs = fontPairsForTones(moods).filter((f) => f.id !== brief.fontPairId);
+  const altTemplates = templates.filter((t) => t.id !== brief.templateId);
+
+  const out = [brief];
+  for (let i = 1; i < count; i++) {
+    const palette = palettes[(i - 1) % Math.max(palettes.length, 1)] || null;
+    const pair = pairs[(i - 1) % Math.max(pairs.length, 1)] || null;
+    const tpl = altTemplates[(i - 1) % Math.max(altTemplates.length, 1)] || null;
+    // no material variation left → stop rather than duplicate candidate 1
+    if (!palette && !pair && !tpl) break;
+    out.push(finishBrief({
+      paletteId: palette ? palette.id : brief.paletteId,
+      fontPairId: pair ? pair.id : brief.fontPairId,
+      templateId: tpl ? tpl.id : brief.templateId,
+      visualMode: brief.visualMode,
+      motifs: brief.motifs,
+      imageStyle: brief.imageStyle,
+      rationale: `variant ${i}: ${palette ? palette.name : 'same palette'} / ${tpl ? tpl.id : brief.templateId}`
+    }, { brand: safeBrand, brandLocked }));
+  }
+  return out;
+}

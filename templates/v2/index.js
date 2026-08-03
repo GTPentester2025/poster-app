@@ -222,7 +222,32 @@ export function getTemplateV2(id) {
  * build functions cross this boundary (the list is JSON-safe for API
  * responses).
  */
+// Preview SVG cache: rendering 88 templates × 2 orientations per gallery GET
+// is the hot path of /api/pipeline/templates. SVG strings are immutable, so
+// they are memoized per palette signature; metadata objects are still built
+// fresh per call (callers may mutate them). Bounded FIFO — brand override +
+// a handful of curated palettes is the realistic working set.
+const PREVIEW_CACHE = new Map();
+const PREVIEW_CACHE_MAX = 8;
+
+function previewsFor(palette) {
+  const key = JSON.stringify(palette);
+  let byId = PREVIEW_CACHE.get(key);
+  if (!byId) {
+    byId = new Map(TEMPLATES_V2.map((t) => [t.id, {
+      portrait: t.preview.portrait(palette),
+      landscape: t.preview.landscape(palette)
+    }]));
+    if (PREVIEW_CACHE.size >= PREVIEW_CACHE_MAX) {
+      PREVIEW_CACHE.delete(PREVIEW_CACHE.keys().next().value);
+    }
+    PREVIEW_CACHE.set(key, byId);
+  }
+  return byId;
+}
+
 export function listTemplatesV2(palette = DEFAULT_PALETTE) {
+  const previews = previewsFor(palette);
   return TEMPLATES_V2.map((t) => ({
     id: t.id,
     name: t.name,
@@ -230,10 +255,7 @@ export function listTemplatesV2(palette = DEFAULT_PALETTE) {
     description: t.description,
     contentSchema: structuredClone(t.contentSchema),
     editable: { ...t.editable },
-    previews: {
-      portrait: t.preview.portrait(palette),
-      landscape: t.preview.landscape(palette)
-    }
+    previews: { ...previews.get(t.id) }
   }));
 }
 

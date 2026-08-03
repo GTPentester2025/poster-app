@@ -20,9 +20,10 @@ import {
 } from './content_pipeline.js';
 import { runDesignPipeline } from './design_pipeline.js';
 import { generateForSlots } from './image_pipeline.js';
-import { directCreative } from '../agents/creative_director.js';
+import { directCreative, candidateBriefs } from '../agents/creative_director.js';
 import { pickAngle } from '../agents/angle_autopick.js';
-import { listTemplatesV2 } from '../templates/v2/index.js';
+import { lintCanvas, lintScore } from '../agents/poster_linter.js';
+import { listTemplatesV2, getTemplateV2, buildCanvas } from '../templates/v2/index.js';
 import { resolveBrand } from '../templates/palette.js';
 
 const PROJECT = 'poster-app';
@@ -48,8 +49,38 @@ function templateChoices() {
     name: t.name,
     style: t.style,
     blocksKind: t.contentSchema?.blocks?.kind || 'any',
+    blocksMin: t.contentSchema?.blocks?.min ?? 0,
+    blocksMax: t.contentSchema?.blocks?.max ?? 99,
     imageSlots: t.contentSchema?.imageSlots ?? 0
   }));
+}
+
+/** Templates whose block schema can hold the ALREADY-GENERATED content. */
+function compatibleTemplates(templateId, blockCount) {
+  const kind = getTemplateV2(templateId)?.contentSchema?.blocks?.kind;
+  if (!kind) return [];
+  return templateChoices().filter((t) =>
+    t.blocksKind === kind && t.blocksMin <= blockCount && blockCount <= t.blocksMax);
+}
+
+/**
+ * Compile-and-judge: build each candidate's portrait canvas (deterministic,
+ * zero model calls) and lint it. Ranking: unfixable violations decide;
+ * auto-FIXED issues do not demote a candidate (they are already repaired in
+ * the real compile) — ties keep original order, i.e. the model's preferred
+ * brief wins unless a variant is measurably cleaner.
+ */
+function judgeCandidates(candidates, content) {
+  const judged = candidates.map((brief, i) => {
+    try {
+      const canvas = buildCanvas(brief.templateId, 'portrait', structuredClone(content), brief.palette, brief.fonts);
+      const report = lintCanvas(canvas);
+      return { brief, i, score: lintScore(report), violations: report.violations.length, fixes: report.fixes.length };
+    } catch {
+      return { brief, i, score: -1, violations: Infinity, fixes: 0 }; // failed compile never wins
+    }
+  });
+  return judged.sort((a, b) => (a.violations - b.violations) || (a.i - b.i));
 }
 
 /** All fillable image slots on a canvas (content slots + the 'bg' background). */
@@ -143,10 +174,27 @@ export async function runAutoPipeline({ ctx, prompt }) {
   };
   await approveContent({ ctx, posterId });
 
-  // ── 5. design: apply the creative brief's template with its palette/fonts
+  // ── 5. design: compile up to 3 schema-compatible candidates (deterministic,
+  // free), judge them with the poster linter, apply the winner.
+  ({ doc } = loadDoc(db, posterId));
+  const blockCount = Array.isArray(doc.content?.blocks) ? doc.content.blocks.length
+    : (Array.isArray(doc.content?.messages) ? doc.content.messages.length : 0);
+  const pool = compatibleTemplates(doc.templateId, blockCount);
+  const candidates = candidateBriefs(
+    { ...brief, templateId: doc.templateId },
+    { topic: doc.contextFile?.topic || cleaned, format: doc.intent?.contentShape || '', templates: pool, brand, brandLocked: brandOverride }
+  );
+  const judged = judgeCandidates(candidates, doc.content);
+  const winner = judged[0];
+  decisions.candidates = judged.map((j) => ({
+    templateId: j.brief.templateId, paletteId: j.brief.paletteId,
+    fontPairId: j.brief.fontPairId, score: j.score, violations: j.violations
+  }));
+  emit('design-selection', 'stage_end', { candidates: decisions.candidates, winner: winner.brief.templateId });
+
   await runDesignPipeline({
     ctx, posterId, mode: 'template',
-    templateId: brief.templateId, visualMode: brief.visualMode, creative: brief
+    templateId: winner.brief.templateId, visualMode: winner.brief.visualMode, creative: winner.brief
   });
 
   // ── 6. images: fill every slot (background + content) in parallel

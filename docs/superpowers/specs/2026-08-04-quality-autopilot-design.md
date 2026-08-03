@@ -123,6 +123,24 @@ One model call that returns a cohesive brief:
 - Model JSON parse failures already repair-retried; creative_director validates
   ids against libraries, invalid → deterministic fallback.
 
+## Addendum (round 2 refinement)
+
+1. **Poster linter** (`agents/poster_linter.js`) — deterministic canvas QA run on
+   every compiled design (both orientations): WCAG contrast of each textbox vs
+   its `bgRef` (< 4.5:1 normal / 3:1 for ≥32px bold text is a violation —
+   auto-fixed by flipping the fill via `pickTextColor`), font-size floor
+   (≥ 14px), canvas-edge margin breaches, and textbox-on-textbox overlap.
+   Fixable issues are repaired in place; the remainder ride the design state as
+   `design.lint` and an SSE `stage_end` payload. Zero model calls.
+2. **Multi-candidate autopilot** — the creative director proposes 3 diverse
+   briefs in one model call (fallback: 3 mood-mapped library variants).
+   Template builds are deterministic and free, so autopilot compiles all 3
+   candidate designs, scores each (lint violations weigh negative; palette/
+   template variety heuristics break ties), applies the winner, and reports the
+   comparison in `decisions.candidates`.
+3. **Gallery preview cache** — `listTemplatesV2` renders 88×2 SVG previews per
+   call; previews are now memoized per palette signature (small bounded map).
+
 ## Testing
 
 - Unit: auto_pipeline graph (fake egress) — happy path, gate cap degradation,

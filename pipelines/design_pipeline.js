@@ -38,6 +38,7 @@ import { recommendTemplate } from '../agents/template_recommender.js';
 import { fenceUserText } from '../agents/prompts/data_fence.js';
 import { refineContext } from '../agents/context_refiner.js';
 import { qaStage } from '../agents/stage_qa.js';
+import { lintDesign } from '../agents/poster_linter.js';
 import { reviewPrompting } from '../agents/overseer.js';
 import {
   CANVAS_W, CANVAS_H, makeCanvas, textbox, rect, circle, polygon, chip, imageSlot, pickTextColor, estTextHeight
@@ -288,6 +289,25 @@ function finishDesign({ ctx, row, doc, posterId, design }) {
 async function finishDesignWithSubAgents({ ctx, row, doc, posterId, design }) {
   const { bus } = ctx;
   const runId = doc.runId;
+
+  // ── poster-linter: deterministic canvas QA on the COMPILED design ─────────
+  // Contrast + font-floor issues are repaired in place before anything
+  // persists; unfixable geometry problems ride design.lint + the event rail.
+  bus.emit({
+    runId, project: PROJECT, pipeline: PIPELINE, stage: 'poster-lint',
+    agent: 'poster-linter', skill: 'lint_canvas', type: 'stage_start',
+    payload: { templateId: design.templateId ?? null }
+  });
+  design.lint = lintDesign(design);
+  bus.emit({
+    runId, project: PROJECT, pipeline: PIPELINE, stage: 'poster-lint',
+    agent: 'poster-linter', skill: 'lint_canvas', type: 'stage_end',
+    payload: {
+      score: design.lint.score,
+      fixes: design.lint.fixes.length,
+      violations: design.lint.violations.slice(0, 8)
+    }
+  });
 
   // ── stage-qa: after design accepted ─────────────────────────────────────
   // Deterministic-only (egress: null): the design canvas was just compiled

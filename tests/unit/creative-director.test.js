@@ -3,7 +3,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { directCreative, moodsForTopic } from '../../agents/creative_director.js';
+import { directCreative, moodsForTopic, candidateBriefs } from '../../agents/creative_director.js';
 import { PALETTES, FONT_PAIRS, getPalette, getFontPair } from '../../data/creative-library.js';
 import { applyBrandOverride } from '../../templates/palette.js';
 import { FakeEgress } from './helpers/fake_egress.js';
@@ -91,6 +91,30 @@ test('unparseable model output → deterministic fallback', async () => {
   });
   assert.ok(getPalette(brief.paletteId));
   assert.equal(brief.templateId, 'qa-chat');
+});
+
+test('candidateBriefs: diversifies palette/fonts/template; brandLocked keeps org colors everywhere', async () => {
+  const base = await directCreative({
+    egress: null, runId: null, topic: 'ransomware alert', format: 'steps',
+    templates: TEMPLATES, brand: BRAND
+  });
+  const cands = candidateBriefs(base, {
+    topic: 'ransomware alert', format: 'steps', templates: TEMPLATES, brand: BRAND, count: 3
+  });
+  assert.equal(cands[0], base);
+  assert.ok(cands.length >= 2);
+  for (const c of cands.slice(1)) {
+    const differs = c.paletteId !== base.paletteId || c.fontPairId !== base.fontPairId || c.templateId !== base.templateId;
+    assert.ok(differs, 'each variant differs materially from the base brief');
+    assert.ok(c.palette && c.fonts, 'variants are fully resolved');
+  }
+
+  const locked = candidateBriefs(base, {
+    topic: 'ransomware alert', format: 'steps', templates: TEMPLATES, brand: BRAND, brandLocked: true, count: 3
+  });
+  for (const c of locked.slice(1)) {
+    assert.equal(c.palette.primary, BRAND.palette.primary, 'brand colors locked on every candidate');
+  }
 });
 
 test('brandLocked keeps org palette; fonts/template still directed', async () => {

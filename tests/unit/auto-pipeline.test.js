@@ -120,6 +120,26 @@ test('autopilot: failed slot generation degrades, never throws', async () => {
   assert.ok(decisions.images.failed.length >= 1, 'failed slots reported, not thrown');
 });
 
+test('autopilot: compiles multiple schema-compatible candidates and records the judgement', async () => {
+  const egress = new FakeEgress(autoHandlers());
+  const ctx = makeCtx(egress);
+  const { posterId, decisions } = await runAutoPipeline({ ctx, prompt: 'warn staff about QR phishing' });
+
+  assert.ok(decisions.candidates.length >= 2, 'diversified into 2+ candidates');
+  for (const c of decisions.candidates) {
+    assert.ok(typeof c.score === 'number');
+    assert.ok(c.templateId);
+  }
+  // winner (first after sort) is what got applied
+  const doc = JSON.parse(ctx.db.prepare('SELECT doc FROM posters WHERE poster_id = ?').get(posterId).doc);
+  assert.equal(doc.design.templateId, decisions.candidates[0].templateId);
+  // ranking is by unfixable violations (ascending) — fixes never demote
+  const v = decisions.candidates.map((c) => c.violations);
+  assert.deepEqual([...v].sort((a, b) => a - b), v);
+  // linter ran on the final design and stored its report
+  assert.ok(doc.design.lint && typeof doc.design.lint.score === 'number');
+});
+
 test('slotIdsOf: collects unique image-slot ids incl background', () => {
   const canvas = { objects: [
     { layerRole: 'image-slot', slotId: 'bg' },
