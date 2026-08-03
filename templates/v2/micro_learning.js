@@ -5,7 +5,7 @@
 // grid; landscape: 3-column grid. 2–4 card blocks {heading, text}.
 
 import {
-  textbox, rect,
+  textbox, rect, backgroundImageSlot,
   fitFontSize, estTextHeight,
   pv, pvRect, pvBars
 } from '../helpers.js';
@@ -93,7 +93,8 @@ function buildPortrait(content, palette, fonts) {
   const { w: W, h: H } = canvasDims('portrait');
   const o = canvas.objects;
 
-  o.push(...legibilityScrim({ w: W, h: H, strength: 0.08 }));
+  o.push(backgroundImageSlot({ w: W, h: H, styleHint: 'clean bright workspace, soft neutral texture, no text', stroke: ACCENT }));
+  o.push(...legibilityScrim({ w: W, h: H, color: BG, strength: 0.9 }));
 
   headerBar(o, content.headline, fonts, W);
 
@@ -110,7 +111,8 @@ function buildLandscape(content, palette, fonts) {
   const { w: W, h: H } = canvasDims('landscape');
   const o = canvas.objects;
 
-  o.push(...legibilityScrim({ w: W, h: H, strength: 0.08 }));
+  o.push(backgroundImageSlot({ w: W, h: H, styleHint: 'clean bright workspace, soft neutral texture, no text', stroke: ACCENT }));
+  o.push(...legibilityScrim({ w: W, h: H, color: BG, strength: 0.9 }));
 
   headerBar(o, content.headline, fonts, W);
 
@@ -166,6 +168,7 @@ export default {
     headline: { required: true, maxWords: 6 },
     callToAction: { required: true, maxWords: 12 },
     blocks: { kind: 'panels', min: 2, max: 4, fields: ['heading', 'text'] },
+    backgroundSlots: 1,
     imageSlots: 0
   },
   build: { portrait: buildPortrait, landscape: buildLandscape },

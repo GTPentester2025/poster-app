@@ -3,8 +3,8 @@
 // Burgundy palette with gold accents on dark canvas.
 // Portrait: stacked stats blocks with breakdown bars. Landscape: 2-column grid.
 
-import { textbox, rect, circle, pv, pvRect } from '../helpers.js';
-import { makeCanvasV2, canvasDims, gradientWash, svgWrapO, DARK_BASE, DARK_INK } from './decor.js';
+import { textbox, rect, circle, backgroundImageSlot, pv, pvRect, pvBars } from '../helpers.js';
+import { makeCanvasV2, canvasDims, gradientWash, legibilityScrim, svgWrapO, PV_LAND_W, DARK_BASE, DARK_INK } from './decor.js';
 
 // ── palette derivation ────────────────────────────────────────────────────────
 function colors(palette) {
@@ -24,7 +24,10 @@ function colors(palette) {
 // ── backdrop ──────────────────────────────────────────────────────────────────
 function backdrop(o, palette, W, H) {
   const c = colors(palette);
-  o.push(rect({ x: 0, y: 0, w: W, h: H, fill: c.darkCanvas }));
+  // full-bleed background image slot + legibility scrim first — the canvas
+  // `background` field carries the dark base, so no opaque rect hides the image
+  o.push(backgroundImageSlot({ w: W, h: H, styleHint: 'dark burgundy financial data backdrop, subtle texture, no text', stroke: c.gold }));
+  o.push(...legibilityScrim({ w: W, h: H, color: c.darkCanvas, strength: 0.9 }));
   o.push(rect({ x: 0, y: 0, w: W, h: H, fill: c.burgundy, opacity: 0.15 }));
   o.push(...gradientWash({ w: W, h: H, from: c.gold, to: c.burgundy, direction: 'diagonal', intensity: 0.2 }));
 }
@@ -213,10 +216,12 @@ function buildLandscape(content, palette, fonts) {
   const c = colors(palette);
   const objects = [];
 
-  // Top accent bar
-  objects.push(rect({ x: 0, y: 0, w: W, h: 6, fill: c.gold }));
-  objects.push(rect({ x: 0, y: 6, w: W, h: H - 6, fill: c.darkCanvas }));
+  // full-bleed background image slot + scrim first (dark base lives on
+  // canvas.background), then the thin top accent bar
+  objects.push(backgroundImageSlot({ w: W, h: H, styleHint: 'dark burgundy financial data backdrop, subtle texture, no text', stroke: c.gold }));
+  objects.push(...legibilityScrim({ w: W, h: H, color: c.darkCanvas, strength: 0.9 }));
   objects.push(rect({ x: 0, y: 6, w: W, h: H - 6, fill: c.burgundy, opacity: 0.1 }));
+  objects.push(rect({ x: 0, y: 0, w: W, h: 6, fill: c.gold }));
 
   // Header
   objects.push(textbox({
@@ -353,35 +358,57 @@ function buildLandscape(content, palette, fonts) {
   return { version: '6.7.1', width: W, height: H, background: c.darkCanvas, objects };
 }
 
-// ── preview SVGs ──────────────────────────────────────────────────────────────
+// ── preview SVGs (pv-scaled geometry with bars standing in for text) ──────────
 function previewPortrait(palette) {
-  const result = buildPortrait({
-    headline: 'Data Breach Cost',
-    subheadline: 'Financial Impact Analysis 2025',
-    blocks: [
-      { label: 'INCIDENT RESPONSE', figure: '$2.4M', text: 'Forensics, containment, investigation', breakdown: [{ pct: 40 }, { pct: 35 }, { pct: 25 }] },
-      { label: 'RECOVERY & REMEDIATION', figure: '$1.8M', text: 'Systems restoration, infrastructure rebuild', breakdown: [{ pct: 45 }, { pct: 30 }, { pct: 25 }] },
-      { label: 'NOTIFICATION & LEGAL', figure: '$920K', text: 'Breach notification, regulatory fines, counsel', breakdown: [{ pct: 30 }, { pct: 50 }, { pct: 20 }] },
-      { label: 'LOST BUSINESS & DOWNTIME', figure: '$1.2M', text: 'Revenue loss, operational impact, SLA credits', breakdown: [{ pct: 50 }, { pct: 35 }, { pct: 15 }] }
-    ],
-    callToAction: 'Total cost: $6.3M | +22% YoY'
-  }, palette, { head: 'Montserrat', body: 'Inter' });
-  return svgWrapO(result.objects, '#1F0B0B', 'portrait');
+  const c = colors(palette);
+  const costHex = [c.costs.primary, c.costs.secondary, c.costs.tertiary];
+  const parts = [
+    pvBars({ x: pv(50), y: pv(50), w: pv(900), lines: 1, barH: 9, gap: 0, fill: c.gold }),
+    pvBars({ x: pv(50), y: pv(112), w: pv(620), lines: 1, barH: 4, gap: 0, fill: c.white })
+  ];
+  for (let i = 0; i < 4; i++) {
+    const y = 180 + i * 420;
+    parts.push(pvRect(pv(50), pv(y), pv(1314), pv(400), c.charcoal, { rx: 1.5, opacity: 0.7 }));
+    parts.push(pvRect(pv(50), pv(y), 1, pv(400), c.gold));
+    parts.push(pvBars({ x: pv(70), y: pv(y + 20), w: pv(360), lines: 1, barH: 2.5, gap: 0, fill: c.gold }));
+    parts.push(pvBars({ x: pv(70), y: pv(y + 60), w: pv(500), lines: 1, barH: 6, gap: 0, fill: c.white }));
+    // breakdown bar: three stacked cost-category segments
+    let bx = 70;
+    for (let s = 0; s < 3; s++) {
+      const segW = [500, 420, 344][s];
+      parts.push(pvRect(pv(bx), pv(y + 360), pv(segW), 2, costHex[s], { opacity: 0.8 }));
+      bx += segW;
+    }
+  }
+  parts.push(pvRect(pv(50), pv(1940), pv(1314), 0.5, c.gold, { opacity: 0.3 }));
+  parts.push(pvBars({ x: pv(50), y: pv(1950), w: pv(700), lines: 1, barH: 3, gap: 0, fill: c.gold }));
+  return svgWrapO(parts, c.darkCanvas, 'portrait');
 }
 
 function previewLandscape(palette) {
-  const result = buildLandscape({
-    headline: 'Data Breach Cost',
-    subheadline: 'Financial Impact Analysis 2025',
-    blocks: [
-      { label: 'INCIDENT RESPONSE', figure: '$2.4M', text: 'Forensics, containment, investigation +22% YoY', breakdown: [{ pct: 40 }, { pct: 35 }, { pct: 25 }] },
-      { label: 'RECOVERY & REMEDIATION', figure: '$1.8M', text: 'Systems restoration, infrastructure rebuild +18% YoY', breakdown: [{ pct: 45 }, { pct: 30 }, { pct: 25 }] },
-      { label: 'NOTIFICATION & LEGAL', figure: '$920K', text: 'Breach notification, regulatory fines, counsel +15% YoY', breakdown: [{ pct: 30 }, { pct: 50 }, { pct: 20 }] },
-      { label: 'LOST BUSINESS & DOWNTIME', figure: '$1.2M', text: 'Revenue loss, operational impact, SLA credits +25% YoY', breakdown: [{ pct: 50 }, { pct: 35 }, { pct: 15 }] }
-    ],
-    callToAction: 'Total cost: $6.3M | Industry avg: $4.8M'
-  }, palette, { head: 'Montserrat', body: 'Inter' });
-  return svgWrapO(result.objects, '#1F0B0B', 'landscape');
+  const c = colors(palette);
+  const costHex = [c.costs.primary, c.costs.secondary, c.costs.tertiary];
+  const parts = [
+    pvRect(0, 0, PV_LAND_W, 1, c.gold),
+    pvBars({ x: pv(60), y: pv(50), w: pv(1000), lines: 1, barH: 8, gap: 0, fill: c.gold }),
+    pvBars({ x: pv(60), y: pv(112), w: pv(700), lines: 1, barH: 4, gap: 0, fill: c.white })
+  ];
+  for (let i = 0; i < 4; i++) {
+    const col = i % 2, row = Math.floor(i / 2);
+    const x = 60 + col * 970, y = 170 + row * 540;
+    parts.push(pvRect(pv(x), pv(y), pv(910), pv(500), c.charcoal, { rx: 1, opacity: 0.7 }));
+    parts.push(pvRect(pv(x), pv(y), 1, pv(500), c.gold));
+    parts.push(pvBars({ x: pv(x + 20), y: pv(y + 12), w: pv(300), lines: 1, barH: 2.5, gap: 0, fill: c.gold }));
+    parts.push(pvBars({ x: pv(x + 20), y: pv(y + 40), w: pv(420), lines: 1, barH: 5, gap: 0, fill: c.white }));
+    let bx = x + 20;
+    for (let s = 0; s < 3; s++) {
+      const segW = [360, 300, 210][s];
+      parts.push(pvRect(pv(bx), pv(y + 460), pv(segW), 1.6, costHex[s], { opacity: 0.8 }));
+      bx += segW;
+    }
+  }
+  parts.push(pvRect(pv(60), pv(1354), pv(1880), 0.5, c.gold, { opacity: 0.3 }));
+  return svgWrapO(parts, c.darkCanvas, 'landscape');
 }
 
 // ── manifest ──────────────────────────────────────────────────────────────────
@@ -395,6 +422,7 @@ export default {
     subheadline: { required: false, maxWords: 20 },
     callToAction: { required: true, maxWords: 15 },
     blocks: { kind: 'stats', min: 3, max: 5, fields: ['label', 'figure', 'text'] },
+    backgroundSlots: 1,
     imageSlots: 0
   },
   build: { portrait: buildPortrait, landscape: buildLandscape },

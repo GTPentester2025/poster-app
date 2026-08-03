@@ -22,7 +22,7 @@ import {
 } from '../../pipelines/content_pipeline.js';
 import { generateContentV2 } from '../../agents/content_generator.js';
 import { validateContentAgainstSchema, normalizeContentV2 } from '../../agents/content_schema.js';
-import { getTemplateV2 } from '../../templates/v2/index.js';
+import { getTemplateV2, listTemplatesV2 } from '../../templates/v2/index.js';
 import {
   FakeEgress, seedArticles, INTENT_OUTPUT, CONTEXT_OUTPUT, UNGROUNDED_CONTEXT_OUTPUT,
   POSTER_CONTENT, ACCEPT_REVIEW, EDIT_CLASSIFICATION
@@ -375,14 +375,15 @@ function req(base, token, path, method = 'GET', body = undefined) {
   });
 }
 
-test('GET /api/pipeline/templates: 64-template gallery with previews', async () => {
+test('GET /api/pipeline/templates: full v2 gallery with previews', async () => {
   const egress = new FakeEgress({});
   const { srv, base, token } = await startServer(egress);
   try {
     const res = await req(base, token, '/api/pipeline/templates');
     assert.equal(res.status, 200);
     const { templates } = await res.json();
-    assert.equal(templates.length, 64);
+    // derive the expected count from the v2 registry — the gallery grows as batches land
+    assert.equal(templates.length, listTemplatesV2().length);
     for (const t of templates) {
       assert.ok(t.id && t.name && t.style && t.contentSchema, `template ${t.id} must carry metadata`);
       assert.match(t.previews.portrait, /<svg/);

@@ -211,24 +211,16 @@ export async function recommendTemplate({ egress, runId, prompt, templates = [],
       const o = JSON.parse(s.slice(a, b + 1));
       if (o && typeof o.templateId === 'string' && list.some((t) => t.id === o.templateId)) {
         const modelShape = typeof o.shapeClassified === 'string' ? o.shapeClassified : fallback.shape;
-        // Blend: if the model's pick scores well in our heuristic, use it.
-        // If the heuristic strongly disagrees, prefer the heuristic (safety).
+        // Documented contract: a VALID model pick is always used — the
+        // multi-factor scoring only ranks the deterministic fallback. The
+        // score is kept as advisory metadata alongside the pick.
         const modelScore = scoreTemplate(o.templateId, modelShape, learningWeights, usedRecently, list.map(t => t.id));
-        if (modelScore >= fallback.score * 0.7 || !fallback.score) {
-          return {
-            templateId: o.templateId,
-            reason: typeof o.reason === 'string' && o.reason.trim() ? o.reason : fallback.reason,
-            shape: modelShape,
-            score: modelScore,
-            allScores: fallback.allScores
-          };
-        }
-        // Model pick is significantly worse — use heuristic but note the disagreement
         return {
-          ...fallback,
-          reason: `${fallback.reason}. (Model suggested ${o.templateId} but scored lower.)`,
-          modelPick: o.templateId,
-          modelReason: o.reason
+          templateId: o.templateId,
+          reason: typeof o.reason === 'string' && o.reason.trim() ? o.reason : fallback.reason,
+          shape: modelShape,
+          score: modelScore,
+          allScores: fallback.allScores
         };
       }
     }

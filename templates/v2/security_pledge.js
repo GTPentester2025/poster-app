@@ -218,6 +218,7 @@ function buildLandscape(content, palette, fonts) {
 
 function previewPortrait(palette) {
   const parts = [
+    pvRect(0, 0, 200, 3, palette.primary),
     pvCircle(pv(707), pv(220), pv(130), 'none', { stroke: GOLD, opacity: 0.35 }),
     pvCircle(pv(707), pv(220), pv(102), 'none', { stroke: GOLD, opacity: 0.25 }),
     pvRect(pv(607), pv(470), pv(200), 1, GOLD, { opacity: 0.3 }),
@@ -233,6 +234,7 @@ function previewPortrait(palette) {
 function previewLandscape(palette) {
   const dividerX = Math.round(2000 * 0.42);
   const parts = [
+    pvRect(0, 0, PV_LAND_W, 3, palette.primary),
     pvCircle(pv(dividerX / 2), pv(260), pv(110), 'none', { stroke: GOLD, opacity: 0.35 }),
     pvRect(pv(dividerX), pv(100), 1, pv(1154), GOLD, { opacity: 0.15 }),
     pvBars({ x: pv(dividerX + 60), y: pv(140), w: pv(2000 - dividerX - 120), lines: 2, barH: 7, gap: 4, fill: TEXT_LIGHT }),

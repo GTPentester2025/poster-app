@@ -7,12 +7,12 @@
 // Landscape: headline top-left, larger calendar grid, CTA bottom-right.
 
 import {
-  textbox, rect, circle,
+  textbox, rect, circle, backgroundImageSlot,
   fitFontSize, estTextHeight,
   pv, pvRect, pvCircle, pvBars
 } from '../helpers.js';
 import {
-  makeCanvasV2, canvasDims, gradientWash, dotGrid, svgWrapO
+  makeCanvasV2, canvasDims, gradientWash, dotGrid, legibilityScrim, svgWrapO
 } from './decor.js';
 
 // Color palette: clean white + soft blue accents
@@ -121,6 +121,8 @@ function buildPortrait(content, palette, fonts) {
   const { w: W, h: H } = canvasDims('portrait');
   const o = canvas.objects;
 
+  o.push(backgroundImageSlot({ w: W, h: H, styleHint: 'soft light abstract texture, pale paper grain, no text', stroke: palette.primary }));
+  o.push(...legibilityScrim({ w: W, h: H, color: CANVAS, strength: 0.9 }));
   backdrop(o, palette, W, H);
 
   const margin = 60;
@@ -150,7 +152,10 @@ function buildPortrait(content, palette, fonts) {
   const gridTop = cursor + 20;
   const gridBottom = ctaY - 40;
   const gridH = gridBottom - gridTop;
-  const cellSize = Math.max(60, Math.floor(gridH / 4));
+  // cell size is capped by BOTH the vertical budget (4 rows) and the
+  // horizontal budget (7 columns inside innerW) so the grid never runs
+  // off the right edge of the canvas
+  const cellSize = Math.min(Math.floor(gridH / 4), Math.floor(innerW / 7));
 
   const blocks = content.blocks || [];
   drawCalendarGrid(o, blocks, margin, gridTop, cellSize, fonts);
@@ -165,6 +170,8 @@ function buildLandscape(content, palette, fonts) {
   const { w: W, h: H } = canvasDims('landscape');
   const o = canvas.objects;
 
+  o.push(backgroundImageSlot({ w: W, h: H, styleHint: 'soft light abstract texture, pale paper grain, no text', stroke: palette.primary }));
+  o.push(...legibilityScrim({ w: W, h: H, color: CANVAS, strength: 0.9 }));
   backdrop(o, palette, W, H);
 
   const margin = 80;
@@ -195,9 +202,10 @@ function buildLandscape(content, palette, fonts) {
   const gridTop = 80;
   const gridBottom = ctaY - 20;
   const gridH = gridBottom - gridTop;
-  const cellSize = Math.max(70, Math.floor(gridH / 4));
-
   const gridX = margin + headW + 40;
+  // cap by the vertical budget AND the horizontal room right of the headline
+  const gridAvailW = W - margin - gridX;
+  const cellSize = Math.min(Math.floor(gridH / 4), Math.floor(gridAvailW / 7));
   const blocks = content.blocks || [];
   drawCalendarGrid(o, blocks, gridX, gridTop, cellSize, fonts);
 
@@ -298,7 +306,7 @@ export default {
     subheadline: { required: false, maxWords: 10 },
     blocks: { kind: 'cells', min: 4, max: 6, fields: ['label', 'text'], extraFields: { dayNumber: 'number' } },
     callToAction: { required: true, maxWords: 8 },
-    backgroundSlots: 0,
+    backgroundSlots: 1,
     imageSlots: 0
   },
   build: { portrait: buildPortrait, landscape: buildLandscape },

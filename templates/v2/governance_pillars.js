@@ -181,6 +181,7 @@ function buildLandscape(content, palette, fonts) {
 
 function previewPortrait(palette) {
   const parts = [
+    pvRect(0, 0, 200, 3, palette.primary),
     pvRect(pv(160), pv(104), pv(1094), pv(200), DARK_PANEL, { rx: 4 }),
     pvBars({ x: pv(220), y: pv(180), w: pv(974), lines: 2, barH: 7, gap: 4, fill: DARK_INK, align: 'center' }),
     pvRect(pv(706), pv(304), 1, pv(56), TEAL, { opacity: 0.7 })
@@ -199,6 +200,7 @@ function previewPortrait(palette) {
 
 function previewLandscape(palette) {
   const parts = [
+    pvRect(0, 0, PV_LAND_W, 3, palette.primary),
     pvRect(pv(60), pv(80), pv(420), pv(280), DARK_PANEL, { rx: 3 }),
     pvBars({ x: pv(100), y: pv(180), w: pv(340), lines: 2, barH: 6, gap: 4, fill: DARK_INK, align: 'center' })
   ];

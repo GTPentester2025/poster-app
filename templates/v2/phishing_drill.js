@@ -4,8 +4,8 @@
 // Landscape: title left, stat cards in a row. gradientWash backdrop, no image slots.
 
 import {
-  textbox, rect,
-  fitFontSize, estTextHeight,
+  textbox, rect, backgroundImageSlot,
+  fitFontSize, estTextHeight, fitTextBlock,
   pv, pvRect, pvBars
 } from '../helpers.js';
 import {
@@ -20,105 +20,71 @@ const PAPER = '#ECF0F1';
 
 function statCard(o, block, palette, fonts, { x, y, w, h, colorIdx }) {
   const cardColor = COLORS[colorIdx % COLORS.length];
-  const isLight = palette.dark === '#FFFFFF';
 
   o.push(rect({ x, y, w, h, fill: SLATE_LIGHT, rx: 16, layerRole: 'background', msgId: block.id }));
 
   // top accent bar
   o.push(rect({ x, y, w, h: 8, fill: cardColor, rx: 16, layerRole: 'decor' }));
 
-  if (block) {
-    // label (top)
-    const labelStr = String(block.label || '').toUpperCase();
-    const lblSize = fitFontSize(labelStr, { width: w - 40, height: 48, maxSize: 24, minSize: 14 });
-    o.push({
-      ...textbox({
-        text: labelStr,
-        x: x + 20,
-        y: y + 20,
-        w: w - 40,
-        fontSize: lblSize,
-        fontFamily: fonts.head,
-        fontWeight: '700',
-        fill: PAPER,
-        align: 'left',
-        lineHeight: 1.1,
-        layerRole: 'message',
-        msgId: block.id,
-        bgRef: SLATE_LIGHT
-      }),
-      fieldRef: 'label'
-    });
+  if (!block) return;
+  // sequential cursor layout: every zone advances by its ACTUAL wrapped
+  // height (fitTextBlock), so long stress content can never collide with
+  // the block below it
+  const innerX = x + 20;
+  const innerW = w - 40;
+  let cursor = y + 20;
 
-    // figure (big number, center-ish)
-    const figStr = String(block.figure || '—');
-    const figSize = fitFontSize(figStr, { width: w - 40, height: 80, maxSize: 72, minSize: 48 });
-    o.push({
-      ...textbox({
-        text: figStr,
-        x: x + 20,
-        y: y + 60,
-        w: w - 40,
-        fontSize: figSize,
-        fontFamily: fonts.head,
-        fontWeight: '900',
-        fill: cardColor,
-        align: 'left',
-        lineHeight: 1,
-        layerRole: 'message',
-        msgId: block.id,
-        bgRef: SLATE_LIGHT
-      }),
-      fieldRef: 'figure'
-    });
+  // label (top)
+  const labelStr = String(block.label || '').toUpperCase();
+  const lbl = fitTextBlock(labelStr, { width: innerW, height: 64, maxSize: 24, minSize: 12, lineHeight: 1.1 });
+  o.push({
+    ...textbox({
+      text: labelStr, x: innerX, y: cursor, w: innerW, fontSize: lbl.fontSize,
+      fontFamily: fonts.head, fontWeight: '700', fill: PAPER, align: 'left',
+      lineHeight: 1.1, layerRole: 'message', msgId: block.id, bgRef: SLATE_LIGHT
+    }),
+    fieldRef: 'label'
+  });
+  cursor += lbl.height + 14;
 
-    // progress bar (thin horizontal bar below figure)
-    const barW = w - 40;
-    const barY = y + 160;
-    const barH = 6;
-    const progressVal = parseInt(block.figure) || 0;
-    const progress = Math.min(Math.max(progressVal / 100, 0), 1);
+  // figure (big number)
+  const figStr = String(block.figure || '—');
+  const fig = fitTextBlock(figStr, { width: innerW, height: 110, maxSize: 72, minSize: 18, lineHeight: 1 });
+  o.push({
+    ...textbox({
+      text: figStr, x: innerX, y: cursor, w: innerW, fontSize: fig.fontSize,
+      fontFamily: fonts.head, fontWeight: '900', fill: cardColor, align: 'left',
+      lineHeight: 1, layerRole: 'message', msgId: block.id, bgRef: SLATE_LIGHT
+    }),
+    fieldRef: 'figure'
+  });
+  cursor += fig.height + 16;
 
-    o.push(rect({
-      x: x + 20,
-      y: barY,
-      w: barW,
-      h: barH,
-      fill: 'rgba(255,255,255,0.15)',
-      rx: 3,
-      layerRole: 'decor'
-    }));
-    o.push(rect({
-      x: x + 20,
-      y: barY,
-      w: barW * progress,
-      h: barH,
-      fill: cardColor,
-      rx: 3,
-      layerRole: 'decor'
-    }));
+  // progress bar (thin horizontal bar below figure)
+  const barH = 6;
+  const progressVal = parseInt(block.figure) || 0;
+  const progress = Math.min(Math.max(progressVal / 100, 0), 1);
+  o.push(rect({
+    x: innerX, y: cursor, w: innerW, h: barH,
+    fill: 'rgba(255,255,255,0.15)', rx: 3, layerRole: 'decor'
+  }));
+  o.push(rect({
+    x: innerX, y: cursor, w: innerW * progress, h: barH,
+    fill: cardColor, rx: 3, layerRole: 'decor'
+  }));
+  cursor += barH + 14;
 
-    // text (bottom description)
-    const textH = h - 185;
-    const tSize = fitFontSize(block.text, { width: w - 40, height: textH, maxSize: 16, minSize: 12 });
-    o.push({
-      ...textbox({
-        text: block.text,
-        x: x + 20,
-        y: barY + 14,
-        w: w - 40,
-        fontSize: tSize,
-        fontFamily: fonts.body,
-        fontWeight: '500',
-        fill: 'rgba(236,240,241,0.85)',
-        lineHeight: 1.35,
-        layerRole: 'message',
-        msgId: block.id,
-        bgRef: SLATE_LIGHT
-      }),
-      fieldRef: 'text'
-    });
-  }
+  // text (bottom description) — budget is whatever room remains in the card
+  const remaining = Math.max(40, y + h - 20 - cursor);
+  const t = fitTextBlock(block.text, { width: innerW, height: remaining, maxSize: 16, minSize: 10, lineHeight: 1.35 });
+  o.push({
+    ...textbox({
+      text: block.text, x: innerX, y: cursor, w: innerW, fontSize: t.fontSize,
+      fontFamily: fonts.body, fontWeight: '500', fill: 'rgba(236,240,241,0.85)',
+      lineHeight: 1.35, layerRole: 'message', msgId: block.id, bgRef: SLATE_LIGHT
+    }),
+    fieldRef: 'text'
+  });
 }
 
 function headlineZone(o, content, palette, fonts, { x, y, w, maxSize }) {
@@ -163,6 +129,7 @@ function buildPortrait(content, palette, fonts) {
   const { w: W, h: H } = canvasDims('portrait');
   const o = canvas.objects;
 
+  o.push(backgroundImageSlot({ w: W, h: H, styleHint: 'dark slate security operations backdrop, subtle texture, no text', stroke: palette.primary }));
   o.push(...gradientWash({ w: W, h: H, from: SLATE, to: SLATE_LIGHT, direction: 'vertical', intensity: 0.5 }));
   o.push(...legibilityScrim({ w: W, h: H, strength: 0.3 }));
 
@@ -190,6 +157,7 @@ function buildLandscape(content, palette, fonts) {
   const { w: W, h: H } = canvasDims('landscape');
   const o = canvas.objects;
 
+  o.push(backgroundImageSlot({ w: W, h: H, styleHint: 'dark slate security operations backdrop, subtle texture, no text', stroke: palette.primary }));
   o.push(...gradientWash({ w: W, h: H, from: SLATE, to: SLATE_LIGHT, direction: 'horizontal', intensity: 0.5 }));
   o.push(...legibilityScrim({ w: W, h: H, strength: 0.3 }));
 
@@ -215,6 +183,7 @@ function buildLandscape(content, palette, fonts) {
 
 function previewPortrait(palette) {
   const parts = [
+    pvRect(0, 0, 200, 3, palette.primary),
     pvBars({ x: pv(80), y: pv(110), w: pv(1000), lines: 2, barH: 8, gap: 5, fill: PAPER })
   ];
 
@@ -238,6 +207,7 @@ function previewPortrait(palette) {
 
 function previewLandscape(palette) {
   const parts = [
+    pvRect(0, 0, PV_LAND_W, 3, palette.primary),
     pvBars({ x: pv(80), y: pv(110), w: pv(440), lines: 2, barH: 8, gap: 5, fill: PAPER })
   ];
 
@@ -272,7 +242,7 @@ export default {
     subheadline: { required: false, maxWords: 12 },
     callToAction: { required: true, maxWords: 12 },
     blocks: { kind: 'stats', min: 3, max: 5, fields: ['label', 'figure', 'text'] },
-    backgroundSlots: 0,
+    backgroundSlots: 1,
     imageSlots: 0
   },
   build: { portrait: buildPortrait, landscape: buildLandscape },

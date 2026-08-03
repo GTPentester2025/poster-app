@@ -4,8 +4,8 @@
 // Portrait: timeline rail on left, event cards stacked right.
 // Landscape: horizontal timeline across top, cards below in 2-column grid.
 
-import { textbox, rect, circle, pv, pvRect } from '../helpers.js';
-import { makeCanvasV2, canvasDims, gradientWash, svgWrapO, DARK_BASE, DARK_INK } from './decor.js';
+import { textbox, rect, circle, backgroundImageSlot, pv, pvRect, pvCircle, pvBars } from '../helpers.js';
+import { makeCanvasV2, canvasDims, gradientWash, legibilityScrim, svgWrapO, PV_LAND_W, DARK_BASE, DARK_INK } from './decor.js';
 
 // ── palette derivation ────────────────────────────────────────────────────────
 function colors(palette) {
@@ -25,7 +25,10 @@ function colors(palette) {
 // ── backdrop ──────────────────────────────────────────────────────────────────
 function backdrop(o, palette, W, H) {
   const c = colors(palette);
-  o.push(rect({ x: 0, y: 0, w: W, h: H, fill: c.navy }));
+  // full-bleed background image slot + legibility scrim first — the canvas
+  // `background` field carries the navy base, so no opaque rect hides the image
+  o.push(backgroundImageSlot({ w: W, h: H, styleHint: 'corporate navy boardroom backdrop, subtle texture, no text', stroke: c.gold }));
+  o.push(...legibilityScrim({ w: W, h: H, color: c.navy, strength: 0.9 }));
   o.push(rect({ x: 0, y: 0, w: 80, h: H, fill: c.charcoal, opacity: 0.3 }));
   o.push(...gradientWash({ w: W, h: H, from: c.gold, to: c.navy, direction: 'diagonal', intensity: 0.25 }));
 }
@@ -113,9 +116,11 @@ function buildLandscape(content, palette, fonts) {
   const { w: W, h: H } = canvasDims('landscape');
   const c = colors(palette);
   const objects = [];
-  // thin top accent bar instead of left rail
+  // full-bleed background image slot + scrim first (navy base lives on
+  // canvas.background), then the thin top accent bar
+  objects.push(backgroundImageSlot({ w: W, h: H, styleHint: 'corporate navy boardroom backdrop, subtle texture, no text', stroke: c.gold }));
+  objects.push(...legibilityScrim({ w: W, h: H, color: c.navy, strength: 0.9 }));
   objects.push(rect({ x: 0, y: 0, w: W, h: 6, fill: c.gold }));
-  objects.push(rect({ x: 0, y: 0, w: W, h: H, fill: c.navy }));
 
   // Header — full width
   objects.push(textbox({ text: String(content.headline || 'ExecutiveBriefing').toUpperCase(), x: 60, y: 50, w: W - 120, fontSize: 48, fontFamily: fonts.head, fontWeight: '900', fill: c.gold }));
@@ -156,15 +161,47 @@ function buildLandscape(content, palette, fonts) {
   return { version: '6.7.1', width: W, height: H, background: c.navy, objects };
 }
 
-// ── preview SVGs ──────────────────────────────────────────────────────────────
+// ── preview SVGs (pv-scaled geometry with bars standing in for text) ──────────
+const SEV_HEX = ['#10B981', '#F59E0B', '#EF4444', '#6B21A8'];
+
 function previewPortrait(palette) {
-  const result = buildPortrait({ headline: 'Q3 Security', subheadline: 'Executive Briefing', blocks: [{ label: 'PHISHING', text: '32% reduction in click rates' }, { label: 'MFA', text: '94% adoption across org' }, { label: 'INCIDENTS', text: 'Zero critical breaches Q3' }], callToAction: 'Full report → security@company.com' }, palette, { head: 'Montserrat', body: 'Inter' });
-  return svgWrapO(result.objects, '#1B2A4A', 'portrait');
+  const c = colors(palette);
+  const parts = [
+    pvRect(0, 0, pv(80), 283, c.charcoal, { opacity: 0.3 }),
+    pvRect(pv(78), 0, 1, 283, c.gold, { opacity: 0.5 }),
+    pvBars({ x: pv(120), y: pv(60), w: pv(900), lines: 1, barH: 9, gap: 0, fill: c.gold }),
+    pvBars({ x: pv(120), y: pv(126), w: pv(620), lines: 1, barH: 5, gap: 0, fill: c.white })
+  ];
+  for (let i = 0; i < 3; i++) {
+    const y = 180 + i * 320;
+    parts.push(pvCircle(pv(80), pv(y + 50), 1.5, SEV_HEX[i % SEV_HEX.length]));
+    parts.push(pvRect(pv(120), pv(y), pv(1154), pv(300), c.charcoal, { rx: 1.5, opacity: 0.6 }));
+    parts.push(pvRect(pv(120), pv(y), 1, pv(300), SEV_HEX[i % SEV_HEX.length]));
+    parts.push(pvBars({ x: pv(140), y: pv(y + 20), w: pv(400), lines: 1, barH: 3, gap: 0, fill: SEV_HEX[i % SEV_HEX.length] }));
+    parts.push(pvBars({ x: pv(140), y: pv(y + 70), w: pv(1080), lines: 2, barH: 3, gap: 2, fill: c.white }));
+  }
+  parts.push(pvRect(pv(120), pv(1910), pv(1154), 0.5, c.gold, { opacity: 0.4 }));
+  parts.push(pvBars({ x: pv(120), y: pv(1925), w: pv(700), lines: 1, barH: 3, gap: 0, fill: c.gold }));
+  return svgWrapO(parts, c.navy, 'portrait');
 }
 
 function previewLandscape(palette) {
-  const result = buildLandscape({ headline: 'Q3 Security', subheadline: 'Executive Briefing', blocks: [{ label: 'PHISHING', text: 'Click rates down 32%' }, { label: 'MFA', text: '94% org adoption' }, { label: 'INCIDENTS', text: 'Zero critical breaches' }, { label: 'TRAINING', text: '98% completion rate' }], callToAction: 'Full report → security@company.com' }, palette, { head: 'Montserrat', body: 'Inter' });
-  return svgWrapO(result.objects, '#1B2A4A', 'landscape');
+  const c = colors(palette);
+  const parts = [
+    pvRect(0, 0, PV_LAND_W, 1, c.gold),
+    pvBars({ x: pv(60), y: pv(50), w: pv(1000), lines: 1, barH: 8, gap: 0, fill: c.gold }),
+    pvBars({ x: pv(60), y: pv(112), w: pv(700), lines: 1, barH: 4, gap: 0, fill: c.white })
+  ];
+  for (let i = 0; i < 4; i++) {
+    const col = i % 2, row = Math.floor(i / 2);
+    const x = 60 + col * 970, y = 170 + row * 540;
+    parts.push(pvRect(pv(x), pv(y), pv(910), pv(500), c.charcoal, { rx: 1, opacity: 0.6 }));
+    parts.push(pvRect(pv(x), pv(y), 1, pv(500), SEV_HEX[i % SEV_HEX.length]));
+    parts.push(pvBars({ x: pv(x + 20), y: pv(y + 12), w: pv(300), lines: 1, barH: 2.5, gap: 0, fill: SEV_HEX[i % SEV_HEX.length] }));
+    parts.push(pvBars({ x: pv(x + 20), y: pv(y + 60), w: pv(860), lines: 2, barH: 2.5, gap: 2, fill: c.white }));
+  }
+  parts.push(pvRect(pv(60), pv(1354), pv(1880), 0.5, c.gold, { opacity: 0.3 }));
+  return svgWrapO(parts, c.navy, 'landscape');
 }
 
 // ── manifest ──────────────────────────────────────────────────────────────────
@@ -178,6 +215,7 @@ export default {
     subheadline: { required: false, maxWords: 20 },
     callToAction: { required: true, maxWords: 12 },
     blocks: { kind: 'sequence', min: 2, max: 6, fields: ['label', 'text'] },
+    backgroundSlots: 1,
     imageSlots: 0
   },
   build: { portrait: buildPortrait, landscape: buildLandscape },

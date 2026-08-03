@@ -5,7 +5,7 @@
 // 3 cols x 2 rows.
 
 import {
-  textbox, rect, circle,
+  textbox, rect, circle, backgroundImageSlot,
   fitFontSize, estTextHeight,
   pv, pvRect, pvCircle, pvBars
 } from '../helpers.js';
@@ -108,7 +108,8 @@ function buildPortrait(content, palette, fonts) {
   const { w: W, h: H } = canvasDims('portrait');
   const o = canvas.objects;
 
-  o.push(...legibilityScrim({ w: W, h: H, strength: 0.15 }));
+  o.push(backgroundImageSlot({ w: W, h: H, styleHint: 'soft light privacy-themed abstract, pale indigo tint, no text', stroke: palette.primary }));
+  o.push(...legibilityScrim({ w: W, h: H, color: LIGHT_BG, strength: 0.9 }));
   o.push(...gradientWash({ w: W, h: H, from: INDIGO, to: LIGHT_BG, direction: 'diagonal', intensity: 0.2 }));
   o.push(...cornerFrame({ x: 48, y: 48, w: W - 96, h: H - 232, color: CYAN, arm: 60, thickness: 2, intensity: 0.4 }));
 
@@ -139,7 +140,8 @@ function buildLandscape(content, palette, fonts) {
   const { w: W, h: H } = canvasDims('landscape');
   const o = canvas.objects;
 
-  o.push(...legibilityScrim({ w: W, h: H, strength: 0.15 }));
+  o.push(backgroundImageSlot({ w: W, h: H, styleHint: 'soft light privacy-themed abstract, pale indigo tint, no text', stroke: palette.primary }));
+  o.push(...legibilityScrim({ w: W, h: H, color: LIGHT_BG, strength: 0.9 }));
   o.push(...gradientWash({ w: W, h: H, from: INDIGO, to: LIGHT_BG, direction: 'diagonal', intensity: 0.2 }));
   o.push(...cornerFrame({ x: 48, y: 48, w: W - 96, h: H - 180, color: CYAN, arm: 60, thickness: 2, intensity: 0.4 }));
 
@@ -167,6 +169,7 @@ function buildLandscape(content, palette, fonts) {
 
 function previewPortrait(palette) {
   const parts = [
+    pvRect(0, 0, 200, 4, palette.primary, { rx: 0 }),
     pvRect(pv(88), pv(96), pv(360), 5, CYAN, { rx: 2 }),
     pvBars({ x: pv(88), y: pv(150), w: pv(980), lines: 2, barH: 8, gap: 5, fill: INK })
   ];
@@ -190,6 +193,7 @@ function previewPortrait(palette) {
 
 function previewLandscape(palette) {
   const parts = [
+    pvRect(0, 0, PV_LAND_W, 4, palette.primary, { rx: 0 }),
     pvRect(pv(88), pv(72), pv(300), 5, CYAN, { rx: 2 }),
     pvBars({ x: pv(88), y: pv(120), w: pv(1180), lines: 2, barH: 7, gap: 4, fill: INK })
   ];
@@ -221,6 +225,7 @@ export default {
     subheadline: { required: false, maxWords: 14 },
     callToAction: { required: true, maxWords: 12 },
     blocks: { kind: 'panels', min: 4, max: 6, fields: ['heading', 'text'] },
+    backgroundSlots: 1,
     imageSlots: 0
   },
   build: { portrait: buildPortrait, landscape: buildLandscape },

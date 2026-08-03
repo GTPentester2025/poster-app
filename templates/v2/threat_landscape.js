@@ -9,12 +9,12 @@
 // legend stacks down the right column, CTA under the rings.
 
 import {
-  textbox, rect, circle,
+  textbox, rect, circle, backgroundImageSlot,
   fitFontSize, estTextHeight,
   pv, pvRect, pvCircle, pvBars
 } from '../helpers.js';
 import {
-  makeCanvasV2, canvasDims, gradientWash, dotGrid, svgWrapO
+  makeCanvasV2, canvasDims, gradientWash, dotGrid, legibilityScrim, svgWrapO
 } from './decor.js';
 
 // Self-contained palette (unique to this template): a deep-navy ground with a
@@ -112,6 +112,8 @@ function buildPortrait(content, palette, fonts) {
   const { w: W, h: H } = canvasDims('portrait');
   const o = canvas.objects;
 
+  o.push(backgroundImageSlot({ w: W, h: H, styleHint: 'deep navy cyber landscape, abstract network topology, no text', stroke: palette.primary }));
+  o.push(...legibilityScrim({ w: W, h: H, color: CANVAS, strength: 0.9 }));
   backdrop(o, palette, W, H);
 
   const margin = 80;
@@ -168,6 +170,8 @@ function buildLandscape(content, palette, fonts) {
   const { w: W, h: H } = canvasDims('landscape');
   const o = canvas.objects;
 
+  o.push(backgroundImageSlot({ w: W, h: H, styleHint: 'deep navy cyber landscape, abstract network topology, no text', stroke: palette.primary }));
+  o.push(...legibilityScrim({ w: W, h: H, color: CANVAS, strength: 0.9 }));
   backdrop(o, palette, W, H);
 
   const margin = 80;
@@ -274,7 +278,7 @@ export default {
     subheadline: { required: false, maxWords: 12 },
     blocks: { kind: 'panels', min: 3, max: 5, fields: ['heading', 'text'] },
     callToAction: { required: true, maxWords: 8 },
-    backgroundSlots: 0,
+    backgroundSlots: 1,
     imageSlots: 0
   },
   build: { portrait: buildPortrait, landscape: buildLandscape },

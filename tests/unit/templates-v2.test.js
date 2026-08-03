@@ -237,8 +237,8 @@ test('image slots stay honest: timeline has exactly 1, qa-chat has 0', () => {
 
 test('listTemplatesV2: serializable metadata + previews, no build functions', () => {
   const list = v2.listTemplatesV2();
-  // the registry grows as batches land — all 64 registered templates, exemplars included
-  assert.equal(list.length, 64);
+  // the registry grows as batches land — all 82 registered templates, exemplars included
+  assert.equal(list.length, 82);
   for (const id of EXEMPLAR_IDS) assert.ok(list.some((t) => t.id === id), `${id} registered`);
   assert.equal(new Set(list.map((t) => t.id)).size, list.length, 'unique ids');
   for (const entry of list) {

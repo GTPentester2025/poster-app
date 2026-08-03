@@ -212,6 +212,7 @@ function buildLandscape(content, palette, fonts) {
 
 function previewPortrait(palette) {
   const parts = [
+    pvRect(0, 0, 200, 3, palette.primary),
     pvBars({ x: pv(88), y: pv(110), w: pv(1000), lines: 2, barH: 7, gap: 4, fill: DARK_INK })
   ];
   for (let i = 0; i < 4; i++) {

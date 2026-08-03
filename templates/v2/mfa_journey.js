@@ -80,26 +80,28 @@ function milestoneNode(o, b, i, fonts, { cx, cy, r, isVertical }) {
     fill: CHECKMARK, opacity: 0.9, rx: 2, layerRole: 'decor'
   }));
 
-  // label to the side of node (left if vertical, above if horizontal)
-  const labelX = isVertical ? cx + nodeR + 28 : cx;
-  const labelY = isVertical ? cy - Math.round(estTextHeight(b.label || '', 18, 200)) / 2 : cy - nodeR - 48;
+  // label to the side of node (left if vertical, centered above if horizontal —
+  // centering keeps the last node's label inside the right canvas edge)
   const labelW = isVertical ? 280 : 200;
+  const labelX = isVertical ? cx + nodeR + 28 : cx - Math.round(labelW / 2);
+  const labelY = isVertical ? cy - Math.round(estTextHeight(b.label || '', 18, 200)) / 2 : cy - nodeR - 48;
   const lSize = fitFontSize(b.label || '', { width: labelW, height: 60, maxSize: 22, minSize: 14 });
   if (b.label) {
     o.push({
       ...textbox({
         text: b.label, x: labelX, y: labelY, w: labelW, fontSize: lSize,
         fontFamily: fonts.head, fontWeight: '800', fill: TEAL_LIGHT,
+        align: isVertical ? 'left' : 'center',
         lineHeight: 1.1, layerRole: 'message', msgId: b.id, bgRef: SLATE_BG
       }),
       fieldRef: 'label'
     });
   }
 
-  // adoption % text below node
-  const pctX = isVertical ? cx + nodeR + 28 : cx;
-  const pctY = isVertical ? cy + nodeR + 16 : cy + nodeR + 12;
+  // adoption % text below node (centered under the node in horizontal mode)
   const pctW = isVertical ? 200 : 180;
+  const pctX = isVertical ? cx + nodeR + 28 : cx - Math.round(pctW / 2);
+  const pctY = isVertical ? cy + nodeR + 16 : cy + nodeR + 12;
   o.push({
     ...textbox({
       text: b.text || '', x: Math.round(pctX), y: Math.round(pctY), w: Math.round(pctW), fontSize: 16,

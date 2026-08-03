@@ -8,10 +8,11 @@
 
 import {
   textbox, rect, backgroundImageSlot,
-  fitFontSize, estTextHeight
+  fitFontSize, estTextHeight,
+  pv, pvRect, pvBars
 } from '../helpers.js';
 import {
-  makeCanvasV2, canvasDims, legibilityScrim,
+  makeCanvasV2, canvasDims, legibilityScrim, svgWrapO, PV_LAND_W,
   DARK_BASE, DARK_INK, DARK_INK_DIM
 } from './decor.js';
 
@@ -155,17 +156,16 @@ function buildLandscape(content, palette, fonts) {
   return canvas;
 }
 
-// ── previews ──────────────────────────────────────────────────────────────────
+// ── previews (pv-scaled SVG strings, bars standing in for text) ───────────────
 function previewPortrait(palette) {
-  const W = 1414; const H = 2000;
   const margin = 80;
-  const innerW = W - margin * 2;
-  const parts = [];
-
-  // headline bar
-  parts.push({ tag: 'rect', x: margin, y: 88, w: innerW, h: 60, fill: DARK_INK, rx: 3 });
-  // subheadline bar
-  parts.push({ tag: 'rect', x: margin, y: 160, w: innerW * 0.7, h: 16, fill: DARK_INK_DIM, rx: 3 });
+  const innerW = 1414 - margin * 2;
+  const parts = [
+    pvRect(0, 0, 200, 3, palette.primary),
+    // headline + subheadline bars
+    pvRect(pv(margin), pv(88), pv(innerW), pv(60), DARK_INK, { rx: 3 }),
+    pvRect(pv(margin), pv(160), pv(innerW * 0.7), pv(16), DARK_INK_DIM, { rx: 3 })
+  ];
 
   // security layer bars (5 layers, portrait)
   const layerH = 72;
@@ -173,35 +173,24 @@ function previewPortrait(palette) {
   const labelW = Math.round(innerW * 0.28);
   const colours = Object.values(LAYER_COLOURS);
   let rc = 220;
-
   for (let i = 0; i < 5; i++) {
-    parts.push({ tag: 'rect', x: margin, y: rc, w: innerW, h: layerH, fill: colours[i], rx: 3, opacity: 0.9 });
-    parts.push({ tag: 'rect', x: margin + 16, y: rc + 12, w: labelW - 32, h: 14, fill: '#FFFFFF', rx: 2 });
-    parts.push({ tag: 'rect', x: margin + labelW + 24, y: rc + 12, w: Math.round(innerW * 0.5), h: 14, fill: '#FFFFFF', opacity: 0.7, rx: 2 });
+    parts.push(pvRect(pv(margin), pv(rc), pv(innerW), pv(layerH), colours[i], { rx: 1, opacity: 0.9 }));
+    parts.push(pvRect(pv(margin + 16), pv(rc + 12), pv(labelW - 32), pv(14), '#FFFFFF', { rx: 1 }));
+    parts.push(pvRect(pv(margin + labelW + 24), pv(rc + 12), pv(Math.round(innerW * 0.5)), pv(14), '#FFFFFF', { rx: 1, opacity: 0.7 }));
     rc += layerH + layerGap;
   }
 
-  return {
-    tag: 'svg',
-    viewBox: `0 0 ${W} ${H}`,
-    xmlns: 'http://www.w3.org/2000/svg',
-    children: [
-      { tag: 'rect', width: W, height: H, fill: DARK_BASE },
-      ...parts
-    ]
-  };
+  return svgWrapO(parts, DARK_BASE, 'portrait');
 }
 
 function previewLandscape(palette) {
-  const W = 2000; const H = 1414;
   const margin = 100;
-  const innerW = W - margin * 2;
-  const parts = [];
-
-  // headline bar
-  parts.push({ tag: 'rect', x: margin, y: 88, w: innerW, h: 50, fill: DARK_INK, rx: 3 });
-  // subheadline bar
-  parts.push({ tag: 'rect', x: margin, y: 150, w: innerW * 0.6, h: 14, fill: DARK_INK_DIM, rx: 3 });
+  const innerW = 2000 - margin * 2;
+  const parts = [
+    pvRect(0, 0, PV_LAND_W, 3, palette.primary),
+    pvRect(pv(margin), pv(88), pv(innerW), pv(50), DARK_INK, { rx: 3 }),
+    pvRect(pv(margin), pv(150), pv(innerW * 0.6), pv(14), DARK_INK_DIM, { rx: 3 })
+  ];
 
   // security layer bars (6 layers, landscape)
   const layerH = 68;
@@ -209,23 +198,14 @@ function previewLandscape(palette) {
   const labelW = Math.round(innerW * 0.22);
   const colours = Object.values(LAYER_COLOURS);
   let rc = 200;
-
   for (let i = 0; i < 6; i++) {
-    parts.push({ tag: 'rect', x: margin, y: rc, w: innerW, h: layerH, fill: colours[i], rx: 3, opacity: 0.9 });
-    parts.push({ tag: 'rect', x: margin + 16, y: rc + 12, w: labelW - 32, h: 12, fill: '#FFFFFF', rx: 2 });
-    parts.push({ tag: 'rect', x: margin + labelW + 24, y: rc + 12, w: Math.round(innerW * 0.45), h: 12, fill: '#FFFFFF', opacity: 0.7, rx: 2 });
+    parts.push(pvRect(pv(margin), pv(rc), pv(innerW), pv(layerH), colours[i], { rx: 1, opacity: 0.9 }));
+    parts.push(pvRect(pv(margin + 16), pv(rc + 12), pv(labelW - 32), pv(12), '#FFFFFF', { rx: 1 }));
+    parts.push(pvRect(pv(margin + labelW + 24), pv(rc + 12), pv(Math.round(innerW * 0.45)), pv(12), '#FFFFFF', { rx: 1, opacity: 0.7 }));
     rc += layerH + layerGap;
   }
 
-  return {
-    tag: 'svg',
-    viewBox: `0 0 ${W} ${H}`,
-    xmlns: 'http://www.w3.org/2000/svg',
-    children: [
-      { tag: 'rect', width: W, height: H, fill: DARK_BASE },
-      ...parts
-    ]
-  };
+  return svgWrapO(parts, DARK_BASE, 'landscape');
 }
 
 export default {

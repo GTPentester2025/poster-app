@@ -15,6 +15,8 @@ import {
   FakeEgress, seedArticles, INTENT_OUTPUT, CONTEXT_OUTPUT, POSTER_CONTENT, ACCEPT_REVIEW,
   DESIGN_SPEC, DESIGN_SPEC_V2, DESIGN_ACCEPT_REVIEW
 } from './helpers/fake_egress.js';
+import { list as listTemplatesV1 } from '../../templates/index.js';
+import { listTemplatesV2 } from '../../templates/v2/index.js';
 
 function startServer(egress) {
   const dataDir = mkdtempSync(join(tmpdir(), 'postter-design-routes-'));
@@ -60,17 +62,20 @@ test('full flow: approve → template gallery (recommended first) → apply → 
   try {
     const approved = await approvedPoster(base, token);
 
-    // gallery: 12 v1 templates (recommended-first for the content shape)
-    // merged with 64 v2 templates, all source-marked
+    // gallery: all v1 templates (recommended-first for the content shape)
+    // merged with all v2 templates, all source-marked — counts derive from
+    // the registries so the test tracks the growing gallery
+    const expectedV1 = listTemplatesV1().length;
+    const expectedV2 = listTemplatesV2().length;
     let res = await req(base, token, `/api/design/templates?posterId=${approved.posterId}`);
     assert.equal(res.status, 200);
     const gallery = await res.json();
     assert.equal(gallery.contentShape, 'red-flags');
-    assert.equal(gallery.templates.length, 76, '12 v1 + 64 v2');
+    assert.equal(gallery.templates.length, expectedV1 + expectedV2, 'v1 + v2 registries');
     const v1Templates = gallery.templates.filter((t) => t.source === 'v1');
     const v2Templates = gallery.templates.filter((t) => t.source === 'v2');
-    assert.equal(v1Templates.length, 12);
-    assert.equal(v2Templates.length, 64);
+    assert.equal(v1Templates.length, expectedV1);
+    assert.equal(v2Templates.length, expectedV2);
     assert.ok(gallery.templates[0].recommended, 'first template must be recommended');
     assert.ok(gallery.templates[0].suitedFor.includes('red-flags'));
     const flags = v1Templates.map((t) => t.recommended);
