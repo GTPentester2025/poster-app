@@ -92,6 +92,11 @@ import breachCost from './breach_cost.js';
 import privacyRights from './privacy_rights.js';
 import mfaJourney from './mfa_journey.js';
 import securityStack from './security_stack.js';
+// O12 distinct-layout family (brutalist, isometric, magazine, ring dashboard)
+import posterBrutal from './poster_brutal.js';
+import isoGrid from './iso_grid.js';
+import magCover from './mag_cover.js';
+import dataRing from './data_ring.js';
 import { validateManifest } from './manifest_schema.js';
 import {
   canvasDims, ORIENTATIONS, PORTRAIT_W, PORTRAIT_H, LANDSCAPE_W, LANDSCAPE_H
@@ -182,8 +187,12 @@ const TEMPLATES_V2 = [
     breachCost,
     privacyRights,
     mfaJourney,
-    securityStack
-  ];
+    securityStack,
+  posterBrutal,
+  isoGrid,
+  magCover,
+  dataRing
+];
 
 // fail-loud load-time validation: bad manifests never reach the gallery
 {
