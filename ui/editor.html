@@ -48,6 +48,13 @@
 <script src="js/auth.js"></script>
 <script src="vendor/pptxgen.bundle.js"></script>
 <script src="js/export.js"></script>
+<!-- Live-lint bridge (Phase O8): pure serialize→lintCanvas helpers. Loaded as
+     a module that stashes its exports on window.EditorLint; editor_inline.js
+     (a plain IIFE) reads that global at interaction time — long after eval. -->
+<script type="module">
+  import * as EditorLint from './js/editor_lint.js';
+  window.EditorLint = EditorLint;
+</script>
 <script src="js/editor_inline.js"></script>
 <script src="js/editor_page.js"></script>
 </body>

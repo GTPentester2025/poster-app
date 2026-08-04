@@ -65,11 +65,22 @@
   const ORIENTATIONS = ['portrait', 'landscape'];
   // fieldRef added over the old editor_page list: v2 qa-pair templates bind two
   // texts of one block through it — the round-trip must not drop it.
-  const EXTRA_PROPS = ['layerRole', 'msgId', 'slotId', 'slotSpec', 'imageId', 'bgRef', 'extraId', 'fieldRef', 'fitMode', 'fitZoom', 'savedClipPath'];
+  // edLocked (O8): our own lock flag — survives save so a locked object stays
+  // locked across reloads. `visible` is a native fabric prop already serialized.
+  const EXTRA_PROPS = ['layerRole', 'msgId', 'slotId', 'slotSpec', 'imageId', 'bgRef', 'extraId', 'fieldRef', 'fitMode', 'fitZoom', 'savedClipPath', 'edLocked'];
   const EDITABLE_PHASES = ['designed', 'saved', 'translated'];
   const HEAD_ROLES = ['headline', 'subheadline', 'message-label'];
   const BODY_ROLES = ['message', 'cta'];
-  const BASE_FONTS = ['Montserrat', 'Inter', 'Georgia', 'Arial', 'Courier New'];
+  // Base families + the curated FONT_PAIRS faces (data/creative-library.js).
+  // Kept as a literal list because data/ is not served under ui/ (no bundler) —
+  // the editor.html <link> preloads Montserrat/Inter; the rest fall back to a
+  // system face until added to the page's font <link> (documented limitation).
+  const FONT_PAIR_FACES = [
+    'Montserrat', 'Inter', 'Archivo Black', 'Playfair Display', 'Source Sans 3',
+    'Space Grotesk', 'IBM Plex Sans', 'Bebas Neue', 'Open Sans', 'Merriweather',
+    'Lato', 'Poppins', 'Roboto', 'Oswald', 'Nunito Sans'
+  ];
+  const BASE_FONTS = [...new Set([...FONT_PAIR_FACES, 'Georgia', 'Arial', 'Courier New'])];
   const ZOOM_MIN = 0.25;
   const ZOOM_MAX = 2;
   const ZOOM_STEP = 0.25;
@@ -268,6 +279,10 @@
         historyTimer: null,
         snapV: false,
         snapH: false,
+        snapLines: [],         // O8: {x1,y1,x2,y2} guide segments (canvas coords) drawn this drag
+        lintTimer: null,       // O8: debounced live-lint timer
+        lintReport: null,      // O8: last { fixes, violations } for this canvas
+        lintBad: null,         // O8: Set of live fabric objects flagged by lint
         frame: null,           // .ed-canvas-frame wrapper (gold ring target)
         canvasEl: null
       };
@@ -400,6 +415,11 @@
       ui.bgColorInput.title = 'Poster background color';
       bgLabel.appendChild(ui.bgColorInput);
 
+      // Live-lint badge (O8): shows the fixable/violation count from the last
+      // debounced lintCanvas run; click applies contrast/font fixes in place.
+      ui.lintBtn = el('button', 'ed-lint-btn hidden', 'Lint');
+      ui.lintBtn.title = 'Readability check (contrast, min font, overflow, overlap)';
+
       ui.dirtyDot = el('span', 'dirty-dot hidden', '●');
       ui.dirtyDot.title = 'Unsaved changes';
       ui.saveStatus = el('span', 'status');
@@ -414,6 +434,7 @@
         langLabel, ui.langSelect, ui.translateBtn,
         ui.scopeWrap, ui.scopeStatus, sep(),
         bgLabel, sep(),
+        ui.lintBtn, sep(),
         ui.dirtyDot, ui.saveStatus, ui.saveBtn, ui.saveAsBtn
       );
       return bar;
@@ -465,7 +486,23 @@
       ui.changeTemplateBtn = el('button', 'rail-btn', 'Change template');
       template.appendChild(ui.changeTemplateBtn);
 
-      rail.append(insert, colors, fonts, template);
+      // Layers panel (O8): every non-decor object of the focused canvas, top
+      // layer first. Click selects; the eye toggles object.visible; the arrows
+      // reorder (fc.moveObjectTo). Rebuilt on selection/add/remove/reorder and
+      // kept in sync with the canvas selection (the active row is highlighted).
+      const layers = el('section', 'ed-layers-section');
+      const layersHead = el('div', 'ed-layers-head');
+      layersHead.appendChild(el('h3', '', 'Layers'));
+      ui.layersDecorToggle = document.createElement('input');
+      ui.layersDecorToggle.type = 'checkbox';
+      const decorLabel = el('label', 'ed-layers-decor');
+      decorLabel.append(ui.layersDecorToggle, document.createTextNode(' show decor'));
+      layersHead.appendChild(decorLabel);
+      layers.appendChild(layersHead);
+      ui.layersList = el('div', 'ed-layers-list');
+      layers.appendChild(ui.layersList);
+
+      rail.append(insert, colors, fonts, template, layers);
       return rail;
     }
 
@@ -524,7 +561,26 @@
       ui.backwardBtn = el('button', '', 'Send backward');
       ui.backwardBtn.title = 'Send backward';
       zRow.append(ui.forwardBtn, ui.backwardBtn);
-      arrange.append(alignGrid, ui.distributeRow, zRow);
+      const zRow2 = el('div', 'btn-row');
+      ui.frontBtn = el('button', '', 'To front');
+      ui.frontBtn.title = 'Bring to front';
+      ui.backBtn = el('button', '', 'To back');
+      ui.backBtn.title = 'Send to back';
+      zRow2.append(ui.frontBtn, ui.backBtn);
+      // group/ungroup + lock/unlock + duplicate (O8)
+      const gRow = el('div', 'btn-row');
+      ui.groupBtn = el('button', '', 'Group');
+      ui.groupBtn.title = 'Group selection (Ctrl+G)';
+      ui.ungroupBtn = el('button', '', 'Ungroup');
+      ui.ungroupBtn.title = 'Ungroup (Ctrl+Shift+G)';
+      gRow.append(ui.groupBtn, ui.ungroupBtn);
+      const lRow = el('div', 'btn-row');
+      ui.lockBtn = el('button', '', 'Lock');
+      ui.lockBtn.title = 'Lock / unlock (prevents moving, scaling, selecting)';
+      ui.duplicateBtn = el('button', '', 'Duplicate');
+      ui.duplicateBtn.title = 'Duplicate (Ctrl+D)';
+      lRow.append(ui.lockBtn, ui.duplicateBtn);
+      arrange.append(alignGrid, ui.distributeRow, zRow, zRow2, gRow, lRow);
 
       // text
       ui.textSection = el('section', 'hidden');
@@ -691,20 +747,20 @@
       ui.ctxAlignBtn.title = 'Text alignment';
       ui.ctxAlignBtn.dataset.align = 'left';
 
-      // text color swatches (palette + custom input)
-      const colorWrap = el('span', 'ctx-color-wrap');
-      ui.ctxColorSwatches = PALETTE_SWATCHES.map((hex) => {
-        const sw = el('button', 'ctx-swatch');
-        sw.style.background = hex;
-        sw.title = hex;
-        sw.dataset.color = hex;
-        return sw;
-      });
+      // text color swatches (poster palette + custom input) — the swatch set is
+      // (re)built from designState.design.palette by rebuildCtxSwatches() once
+      // the design loads; PALETTE_SWATCHES is the pre-load fallback.
+      ui.ctxColorWrap = el('span', 'ctx-color-wrap');
       ui.ctxColorInput = document.createElement('input');
       ui.ctxColorInput.type = 'color';
       ui.ctxColorInput.title = 'Custom text color';
       ui.ctxColorInput.className = 'ctx-color-input';
-      colorWrap.append(...ui.ctxColorSwatches, ui.ctxColorInput);
+      ui.ctxColorSwatches = [];
+      buildCtxSwatchButtons(PALETTE_SWATCHES);
+
+      // contrast readout vs the object's bgRef (WCAG ratio + pass/fail chip)
+      ui.ctxContrast = el('span', 'ctx-contrast');
+      ui.ctxContrast.title = 'Contrast of the text color against its background (WCAG). ≥4.5:1 passes for body text.';
 
       // line-height stepper
       ui.ctxLhDec = el('button', 'ctx-btn', '↕−');
@@ -737,11 +793,13 @@
       ui.ctxRegenBtn = el('button', 'ctx-btn ctx-regen hidden', '↻ Regenerate');
       ui.ctxRegenBtn.title = 'Regenerate this text with AI';
 
+      ui.ctxColorWrap.appendChild(ui.ctxColorInput);
+
       const sep = () => el('span', 'ctx-sep');
       bar.append(
         ui.ctxFontDec, ui.ctxFontSizeLabel, ui.ctxFontInc, sep(),
         ui.ctxBoldBtn, ui.ctxAlignBtn, sep(),
-        colorWrap, sep(),
+        ui.ctxColorWrap, ui.ctxContrast, sep(),
         ui.ctxLhDec, ui.ctxLhInc, sep(),
         ui.ctxOpacity, sep(),
         ui.ctxForwardBtn, ui.ctxBackwardBtn, sep(),
@@ -751,6 +809,69 @@
       overlays.push(bar);
       document.body.appendChild(bar);
       ui.ctxToolbar = bar;
+    }
+
+    /**
+     * (Re)build the palette swatch buttons in the context toolbar from a list
+     * of hex colors. Wires each swatch's click to set the active text fill.
+     * Called once with PALETTE_SWATCHES at build, then again from
+     * rebuildCtxSwatches() when designState.design.palette is known.
+     */
+    function buildCtxSwatchButtons(colors) {
+      // clear existing swatch buttons (keep the color input at the end)
+      for (const sw of ui.ctxColorSwatches) sw.remove();
+      ui.ctxColorSwatches = [];
+      const seen = new Set();
+      const list = [];
+      for (const c of colors) {
+        const hex = toHex6(c, '');
+        if (hex && !seen.has(hex)) { seen.add(hex); list.push(hex); }
+      }
+      for (const hex of list) {
+        const sw = el('button', 'ctx-swatch');
+        sw.style.background = hex;
+        sw.title = hex;
+        sw.dataset.color = hex;
+        sw.addEventListener('click', () => {
+          applyToActive({ fill: sw.dataset.color });
+          updateContextToolbar();
+          renderProps();
+        });
+        ui.ctxColorSwatches.push(sw);
+      }
+      // insert before the custom color input
+      for (const sw of ui.ctxColorSwatches) ui.ctxColorWrap.insertBefore(sw, ui.ctxColorInput);
+    }
+
+    /** Swap the context-toolbar swatches to the poster's palette + brand basics. */
+    function rebuildCtxSwatches() {
+      const p = designState && designState.design && designState.design.palette;
+      if (!p) return;
+      const paletteColors = [p.primary, p.secondary, p.accent, p.background, p.dark]
+        .filter(Boolean);
+      // palette first, then a couple of neutral basics for legibility choices
+      buildCtxSwatchButtons([...paletteColors, '#ffffff', '#1f1a17']);
+    }
+
+    /** Update the contrast readout for the active text object vs its bgRef. */
+    function updateContrastReadout(obj) {
+      const L = lintApi();
+      const box = ui.ctxContrast;
+      if (!box) return;
+      const fill = toHex6(obj && obj.fill, '');
+      const bg = toHex6(obj && obj.bgRef, '');
+      if (!L || !obj || !HEX6.test(fill) || !HEX6.test(bg)) {
+        box.textContent = '';
+        box.className = 'ctx-contrast';
+        return;
+      }
+      const ratio = L.contrastRatio(fill, bg);
+      const large = (obj.fontSize || 0) >= 32 && Number(obj.fontWeight) >= 700;
+      const need = large ? 3 : 4.5;
+      const pass = ratio >= need;
+      box.textContent = `${ratio.toFixed(1)}:1`;
+      box.className = 'ctx-contrast ' + (pass ? 'ctx-contrast-ok' : 'ctx-contrast-bad');
+      box.title = `${ratio.toFixed(2)}:1 vs background ${bg} — ${pass ? 'passes' : 'below'} ${need}:1`;
     }
 
     /**
@@ -815,6 +936,9 @@
         sw.classList.toggle('ctx-swatch-active', sw.dataset.color === fill);
       }
 
+      // O8: contrast readout vs the object's bgRef
+      updateContrastReadout(obj);
+
       // opacity
       ui.ctxOpacity.value = Math.round((obj.opacity ?? 1) * 100);
 
@@ -871,14 +995,7 @@
         renderProps();
       });
 
-      // color swatches
-      for (const sw of ui.ctxColorSwatches) {
-        sw.addEventListener('click', () => {
-          applyToActive({ fill: sw.dataset.color });
-          updateContextToolbar();
-          renderProps();
-        });
-      }
+      // color swatches are wired in buildCtxSwatchButtons (rebuilt per palette)
       ui.ctxColorInput.addEventListener('input', () => {
         applyToActive({ fill: ui.ctxColorInput.value });
         updateContextToolbar();
@@ -1348,6 +1465,8 @@
       } finally {
         side.suppressEvents = false;
       }
+      // O8: re-apply persisted locks (edLocked) so a locked object stays locked.
+      reapplyLocks(side);
       // If fit changed objects, mark dirty so the corrected sizes persist
       // (suppressEvents is now false so markDirty → autosave works normally)
       if (fitChanged) markDirty(side);
@@ -1355,7 +1474,10 @@
         renderSwatches();
         renderProps();
         syncBgSwatch();
+        refreshLayers();
       }
+      // O8: lint the freshly loaded canvas (badge + red outlines from t0)
+      scheduleLint(side);
     }
 
     function serializeCanvas(side = focusedSide) {
@@ -1417,11 +1539,15 @@
       notifyPreviewSoon(side); // every mutating edit mirrors into the host preview
     }
 
-    /** A canvas change from the user: dirty + autosave + history in one place. */
+    /** A canvas change from the user: dirty + autosave + history in one place.
+     *  O8: also schedules the debounced live-lint and refreshes the layers list
+     *  (only for the focused side; hidden-side edits still lint/save). */
     function onCanvasChanged(side = focusedSide) {
       if (side.suppressEvents) return;
       markDirty(side);
       pushHistorySoon(side);
+      scheduleLint(side);
+      if (side === focusedSide) refreshLayers();
     }
 
     /**
@@ -1594,6 +1720,8 @@
       renderSwatches();
       renderProps();
       syncBgSwatch();
+      refreshLayers();   // O8: layers panel follows the focused canvas
+      updateLintBadge(); // O8: badge reflects the focused canvas's report
     }
 
     function landscapeAvailable() {
@@ -1871,6 +1999,14 @@
       ui.imageSection.classList.toggle('hidden', !imageish);
       ui.shapeSection.classList.toggle('hidden', !single || isTextObj(single) || imageish || typeof single.fill !== 'string');
 
+      // O8: group/ungroup/lock button state reflect the current selection
+      ui.groupBtn.disabled = objs.length < 2;
+      ui.ungroupBtn.disabled = !(single && single.type === 'group');
+      const anyLocked = objs.some((o) => o.edLocked);
+      ui.lockBtn.textContent = anyLocked ? 'Unlock' : 'Lock';
+      ui.lockBtn.classList.toggle('toggled', anyLocked);
+      ui.duplicateBtn.disabled = !single;
+
       if (isTextObj(single)) {
         setSelectValue(ui.fontFamily, single.fontFamily || 'Inter');
         ui.fontSize.value = Math.round(single.fontSize || 40);
@@ -2084,6 +2220,7 @@
       for (const o of toDelete) fc.remove(o);
       fc.requestRenderAll();
       renderSwatches();
+      refreshLayers();
       onCanvasChanged();
     }
 
@@ -2110,6 +2247,275 @@
         onCanvasChanged();
         updateContextToolbar();
       }).catch(() => { /* ignore clone errors */ });
+    }
+
+    // ── group / ungroup (O8) ─────────────────────────────────────────────────
+    // fabric v6: a multi-object ActiveSelection → a persistent fabric.Group;
+    // ungroup explodes a selected Group back into its members (each keeps its
+    // custom props — Group serialization nests them, but the editor round-trips
+    // groups as top-level objects only, so we flatten on ungroup and never let
+    // a bound text hide inside a group across save). Bound text is left where it
+    // is; grouping is a layout convenience for FREE (user/decor) objects.
+
+    function groupSelection() {
+      const sel = fc.getActiveObject();
+      if (!(sel instanceof fabric.ActiveSelection)) return;
+      const objs = sel.getObjects();
+      if (objs.length < 2) return;
+      const group = new fabric.Group(objs, { canvas: fc });
+      group.layerRole = 'group';
+      group.extraId = 'gp-' + crypto.randomUUID();
+      fc.discardActiveObject();
+      // remove the members, add the group, select it
+      for (const o of objs) fc.remove(o);
+      fc.add(group);
+      fc.setActiveObject(group);
+      fc.requestRenderAll();
+      onCanvasChanged();
+      refreshLayers();
+    }
+
+    function ungroupSelection() {
+      const g = activeSingle();
+      if (!g || g.type !== 'group' || typeof g.removeAll !== 'function') return;
+      // fabric v6: removeAll() returns the members with absolute coords restored
+      const members = g.removeAll();
+      fc.remove(g);
+      for (const m of members) fc.add(m);
+      fc.discardActiveObject();
+      fc.setActiveObject(new fabric.ActiveSelection(members, { canvas: fc }));
+      fc.requestRenderAll();
+      onCanvasChanged();
+      refreshLayers();
+    }
+
+    // ── lock / unlock (O8) ───────────────────────────────────────────────────
+    // A locked object cannot be moved, scaled, rotated or selected by drag; the
+    // edLocked flag survives save (EXTRA_PROPS) so locks persist across reloads.
+
+    function applyLockState(obj, locked) {
+      obj.set({
+        edLocked: locked ? true : undefined,
+        lockMovementX: locked, lockMovementY: locked,
+        lockScalingX: locked, lockScalingY: locked,
+        lockRotation: locked,
+        selectable: !locked, evented: !locked,
+        hasControls: !locked, hasBorders: !locked
+      });
+    }
+
+    function toggleLockSelection() {
+      const objs = selectionObjects();
+      if (!objs.length) return;
+      // if ANY is unlocked, lock all; else unlock all
+      const anyUnlocked = objs.some((o) => !o.edLocked);
+      for (const o of objs) applyLockState(o, anyUnlocked);
+      if (anyUnlocked) fc.discardActiveObject();
+      fc.requestRenderAll();
+      renderProps();
+      refreshLayers();
+      onCanvasChanged();
+    }
+
+    /** Re-apply persisted locks after a canvas (re)load so edLocked takes effect. */
+    function reapplyLocks(side) {
+      for (const o of side.fc.getObjects()) {
+        if (o.edLocked) applyLockState(o, true);
+      }
+    }
+
+    // ── layers panel (O8) ────────────────────────────────────────────────────
+    // Lists the focused canvas's objects top-first (canvas z-order is
+    // bottom-first, so we reverse). Pure decor/scrim/background is hidden unless
+    // the "show decor" toggle is on. Each row: eye (visible), label, up/down
+    // (reorder via moveObjectTo). The active object's row is highlighted.
+
+    const DECOR_ROLES = new Set(['decor', 'scrim', 'background']);
+
+    function layerLabel(o) {
+      if (isTextObj(o)) {
+        const t = (o.text || '').trim().replace(/\s+/g, ' ');
+        if (t) return t.length > 26 ? t.slice(0, 25) + '…' : t;
+        return o.layerRole || 'text';
+      }
+      if (isImageObj(o)) return o.slotId ? `image · ${o.slotId}` : 'image';
+      if (o.type === 'group') return 'group';
+      return o.layerRole || o.type || 'object';
+    }
+
+    /** Rebuild the layers list from the focused canvas. Cheap: called on any
+     *  add/remove/reorder/selection change (all already debounced upstream). */
+    function refreshLayers() {
+      const list = ui.layersList;
+      if (!list) return;
+      list.textContent = '';
+      if (!fc) return;
+      const showDecor = ui.layersDecorToggle && ui.layersDecorToggle.checked;
+      const active = new Set(selectionObjects());
+      const objs = fc.getObjects();
+      // top layer first
+      for (let i = objs.length - 1; i >= 0; i--) {
+        const o = objs[i];
+        if (!showDecor && DECOR_ROLES.has(o.layerRole || '') && !o.bgRef) continue;
+        if (!showDecor && o.bgRef) continue;
+        const row = el('div', 'ed-layer-row');
+        if (active.has(o)) row.classList.add('active');
+
+        const eye = el('button', 'ed-layer-eye', o.visible === false ? '🚫' : '👁');
+        eye.title = o.visible === false ? 'Show' : 'Hide';
+        eye.addEventListener('click', (e) => {
+          e.stopPropagation();
+          o.set('visible', o.visible === false);
+          if (o.visible === false && active.has(o)) fc.discardActiveObject();
+          fc.requestRenderAll();
+          onCanvasChanged();
+          refreshLayers();
+        });
+
+        const name = el('span', 'ed-layer-name', layerLabel(o));
+        if (o.edLocked) name.classList.add('ed-layer-locked');
+
+        const up = el('button', 'ed-layer-move', '▲');
+        up.title = 'Move up';
+        up.addEventListener('click', (e) => {
+          e.stopPropagation();
+          fc.bringObjectForward(o);
+          fc.requestRenderAll();
+          onCanvasChanged();
+          refreshLayers();
+        });
+        const down = el('button', 'ed-layer-move', '▼');
+        down.title = 'Move down';
+        down.addEventListener('click', (e) => {
+          e.stopPropagation();
+          fc.sendObjectBackwards(o);
+          fc.requestRenderAll();
+          onCanvasChanged();
+          refreshLayers();
+        });
+
+        row.addEventListener('click', () => {
+          if (o.selectable === false) return; // locked
+          fc.discardActiveObject();
+          fc.setActiveObject(o);
+          fc.requestRenderAll();
+        });
+
+        row.append(eye, name, up, down);
+        list.appendChild(row);
+      }
+    }
+
+    // ── live lint overlay (O8) ───────────────────────────────────────────────
+    // After any change (debounced), flatten the focused canvas into the linter
+    // shape and run window.EditorLint.lintFabricSerialization (reuses the exact
+    // agents/poster_linter.js thresholds). Offending Textboxes get a red outline
+    // (drawn on the upper canvas in after:render, like the snap guides); the
+    // toolbar badge shows counts and, when clicked, applies the in-place
+    // contrast/font fixes back onto the live fabric objects. Degrades to a
+    // no-op when window.EditorLint is absent (e.g. the create-page Refine
+    // station host, which does not load the lint module).
+
+    const LINT_DEBOUNCE_MS = 400;
+
+    function lintApi() { return (typeof window !== 'undefined' && window.EditorLint) || null; }
+
+    function runLint(side = focusedSide) {
+      const L = lintApi();
+      if (!L || !side.fc) { side.lintReport = null; updateLintBadge(); return; }
+      const { w, h } = DIMS[side.orientation];
+      const serialized = side.fc.toObject(EXTRA_PROPS);
+      const report = L.lintFabricSerialization(serialized, w, h);
+      // map violation/fix indices → the live fabric objects (same order)
+      const objs = side.fc.getObjects();
+      const badIdx = new Set();
+      for (const v of report.violations) {
+        if (typeof v.index === 'number' && v.index >= 0) badIdx.add(v.index);
+        if (typeof v.index2 === 'number' && v.index2 >= 0) badIdx.add(v.index2);
+      }
+      for (const f of report.fixes) if (typeof f.index === 'number') badIdx.add(f.index);
+      side.lintBad = new Set([...badIdx].map((i) => objs[i]).filter(Boolean));
+      side.lintReport = report;
+      side.fc.requestRenderAll();
+      if (side === focusedSide) updateLintBadge();
+    }
+
+    function scheduleLint(side = focusedSide) {
+      if (!lintApi()) return;
+      clearTimeout(side.lintTimer);
+      side.lintTimer = setTimeout(() => { if (!destroyed) runLint(side); }, LINT_DEBOUNCE_MS);
+    }
+
+    function updateLintBadge() {
+      const btn = ui.lintBtn;
+      if (!btn) return;
+      if (!lintApi()) { btn.classList.add('hidden'); return; }
+      const r = focusedSide.lintReport;
+      if (!r) { btn.classList.add('hidden'); return; }
+      const fixable = r.fixes.length;
+      const issues = r.violations.length;
+      btn.classList.remove('hidden');
+      if (!fixable && !issues) {
+        btn.textContent = '✓ Readable';
+        btn.classList.remove('ed-lint-warn', 'ed-lint-fix');
+        btn.classList.add('ed-lint-ok');
+        btn.disabled = true;
+        btn.title = 'No readability issues detected';
+      } else {
+        btn.disabled = false;
+        btn.classList.remove('ed-lint-ok');
+        const parts = [];
+        if (fixable) parts.push(`${fixable} fixable`);
+        if (issues) parts.push(`${issues} issue${issues === 1 ? '' : 's'}`);
+        btn.textContent = `⚠ ${parts.join(' · ')}`;
+        btn.classList.toggle('ed-lint-fix', fixable > 0);
+        btn.classList.toggle('ed-lint-warn', fixable === 0 && issues > 0);
+        btn.title = fixable
+          ? 'Click to fix contrast/font issues; overflow/overlap are reported only'
+          : 'Overflow/overlap issues (fix by moving/resizing) — not auto-fixable';
+      }
+    }
+
+    /** Apply lintCanvas's in-place contrast/font fixes back onto live objects. */
+    function applyLintFixes(side = focusedSide) {
+      const L = lintApi();
+      if (!L || !side.fc || !side.lintReport) return;
+      const objs = side.fc.getObjects();
+      let applied = 0;
+      for (const f of side.lintReport.fixes) {
+        const o = objs[f.index];
+        if (!o) continue;
+        if (f.kind === 'contrast' && f.fill) { o.set('fill', f.fill); applied += 1; }
+        else if (f.kind === 'min-font' && f.fontSize) { o.set('fontSize', f.fontSize); autofitObj(o); applied += 1; }
+      }
+      if (applied) {
+        side.fc.requestRenderAll();
+        onCanvasChanged(side);
+        renderProps();
+        flash(ui.saveStatus, `Fixed ${applied} readability issue${applied === 1 ? '' : 's'}.`);
+      }
+      runLint(side);
+    }
+
+    /** Draw a red outline around each linted-bad object (upper canvas). */
+    function drawLintBadges(side) {
+      const bad = side.lintBad;
+      if (!bad || !bad.size) return;
+      const sfc = side.fc;
+      const ctx = sfc.contextTop;
+      const vpt = sfc.viewportTransform;
+      ctx.save();
+      ctx.strokeStyle = '#c0102e';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([]);
+      for (const o of bad) {
+        if (!o || o.visible === false) continue;
+        const r = o.getBoundingRect();
+        const x = r.left * vpt[0] + vpt[4];
+        const y = r.top * vpt[3] + vpt[5];
+        ctx.strokeRect(x - 2, y - 2, r.width * vpt[0] + 4, r.height * vpt[3] + 4);
+      }
+      ctx.restore();
     }
 
     // ── regenerate selected text (calls POST /api/editor/:id/regenerate-text) ──
@@ -2682,44 +3088,92 @@
 
     // ── snap-to-center guidelines ────────────────────────────────────────────
 
+    /**
+     * Smart snapping (O8): while dragging, snap the active object's edges and
+     * center to the canvas edges/center AND to every sibling object's
+     * edges/centers. Each satisfied snap yields a full-canvas guide segment
+     * drawn on the upper canvas. Threshold SNAP_PX. Slot images still pan
+     * within their frame (clamp, no snap). The candidate snap targets are
+     * gathered from siblings' bounding rects — cheap for poster-sized canvases.
+     */
     function wireSnapGuides(side) {
       const sfc = side.fc;
       const { w: W, h: H } = DIMS[side.orientation];
+
+      function siblingTargets(active) {
+        const xs = [{ v: 0 }, { v: W / 2 }, { v: W }]; // canvas edges + center
+        const ys = [{ v: 0 }, { v: H / 2 }, { v: H }];
+        for (const o of sfc.getObjects()) {
+          if (o === active || o.visible === false) continue;
+          if (active.getObjects && active.getObjects().includes(o)) continue;
+          const r = o.getBoundingRect();
+          xs.push({ v: r.left }, { v: r.left + r.width / 2 }, { v: r.left + r.width });
+          ys.push({ v: r.top }, { v: r.top + r.height / 2 }, { v: r.top + r.height });
+        }
+        return { xs, ys };
+      }
+
       sfc.on('object:moving', (e) => {
         const t = e.target;
         if (!t) return;
-        // slot images pan WITHIN their frame — clamp, no centre-snap
         if (isSlotImage(t)) { clampSlotImage(t); return; }
-        const c = t.getCenterPoint();
-        side.snapV = Math.abs(c.x - W / 2) <= SNAP_PX;
-        side.snapH = Math.abs(c.y - H / 2) <= SNAP_PX;
-        if (side.snapV || side.snapH) {
-          t.setPositionByOrigin(
-            new fabric.Point(side.snapV ? W / 2 : c.x, side.snapH ? H / 2 : c.y),
-            'center', 'center'
-          );
-          t.setCoords();
+        const r = t.getBoundingRect();
+        const { xs, ys } = siblingTargets(t);
+        // candidate anchors on the moving object: left, center, right / top, mid, bottom
+        const objXs = [r.left, r.left + r.width / 2, r.left + r.width];
+        const objYs = [r.top, r.top + r.height / 2, r.top + r.height];
+        side.snapLines = [];
+        let dx = 0; let bestX = SNAP_PX + 1;
+        for (const ox of objXs) for (const cand of xs) {
+          const d = cand.v - ox;
+          if (Math.abs(d) < Math.abs(bestX)) { bestX = d; dx = d; }
         }
+        let dy = 0; let bestY = SNAP_PX + 1;
+        for (const oy of objYs) for (const cand of ys) {
+          const d = cand.v - oy;
+          if (Math.abs(d) < Math.abs(bestY)) { bestY = d; dy = d; }
+        }
+        const doX = Math.abs(bestX) <= SNAP_PX;
+        const doY = Math.abs(bestY) <= SNAP_PX;
+        if (doX) t.set('left', (t.left || 0) + dx);
+        if (doY) t.set('top', (t.top || 0) + dy);
+        if (doX || doY) t.setCoords();
+        // record guide lines at the snapped edge positions
+        if (doX) {
+          const nr = t.getBoundingRect();
+          for (const gx of [nr.left, nr.left + nr.width / 2, nr.left + nr.width]) {
+            if (xs.some((c) => Math.abs(c.v - gx) < 0.5)) side.snapLines.push({ x1: gx, y1: 0, x2: gx, y2: H });
+          }
+        }
+        if (doY) {
+          const nr = t.getBoundingRect();
+          for (const gy of [nr.top, nr.top + nr.height / 2, nr.top + nr.height]) {
+            if (ys.some((c) => Math.abs(c.v - gy) < 0.5)) side.snapLines.push({ x1: 0, y1: gy, x2: W, y2: gy });
+          }
+        }
+        side.snapV = doX; side.snapH = doY;
       });
       sfc.on('mouse:up', () => {
-        if (side.snapV || side.snapH) { side.snapV = side.snapH = false; sfc.requestRenderAll(); }
+        if (side.snapLines.length || side.snapV || side.snapH) {
+          side.snapLines = []; side.snapV = side.snapH = false; sfc.requestRenderAll();
+        }
       });
       sfc.on('before:render', () => sfc.clearContext(sfc.contextTop));
       sfc.on('after:render', () => {
-        if (!side.snapV && !side.snapH) return;
-        const ctx = sfc.contextTop;
         const vpt = sfc.viewportTransform;
+        // lint badges (red outlines) always drawn; snap guides only while dragging
+        drawLintBadges(side);
+        if (!side.snapLines || !side.snapLines.length) return;
+        const ctx = sfc.contextTop;
         ctx.save();
         ctx.strokeStyle = '#e3af32';
         ctx.lineWidth = 1;
         ctx.setLineDash([6, 4]);
-        if (side.snapV) {
-          const x = (W / 2) * vpt[0] + vpt[4];
-          ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, sfc.height); ctx.stroke();
-        }
-        if (side.snapH) {
-          const y = (H / 2) * vpt[3] + vpt[5];
-          ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(sfc.width, y); ctx.stroke();
+        for (const g of side.snapLines) {
+          ctx.beginPath();
+          ctx.moveTo(g.x1 * vpt[0] + vpt[4], g.y1 * vpt[3] + vpt[5]);
+          ctx.lineTo(g.x2 * vpt[0] + vpt[4], g.y2 * vpt[3] + vpt[5]);
+          ctx.stroke();
         }
         ctx.restore();
       });
@@ -2760,6 +3214,8 @@
         if ((key === 'z' && e.shiftKey) || key === 'y') { e.preventDefault(); restoreState(focusedSide, focusedSide.stateIdx + 1); return; }
         if (key === 's') { e.preventDefault(); saveAllSides(true); return; }
         if (key === 'd') { e.preventDefault(); duplicateSelection(); return; }
+        if (key === 'g' && !e.shiftKey) { e.preventDefault(); groupSelection(); return; }
+        if (key === 'g' && e.shiftKey) { e.preventDefault(); ungroupSelection(); return; }
       }
       // Delete / Backspace: remove selected non-background object(s)
       if ((e.key === 'Delete' || e.key === 'Backspace') && !inField && !editingText) {
@@ -2891,7 +3347,7 @@
         updateImageContextToolbar();
       });
 
-      // z-order (layer panel deferred — data model keeps layerRole intact)
+      // z-order (layerRole survives — reorder never touches custom props)
       ui.forwardBtn.addEventListener('click', () => {
         const single = activeSingle();
         if (!single) return;
@@ -2906,6 +3362,30 @@
         fc.requestRenderAll();
         onCanvasChanged();
       });
+      ui.frontBtn.addEventListener('click', () => {
+        const single = activeSingle();
+        if (!single) return;
+        fc.bringObjectToFront(single);
+        fc.requestRenderAll();
+        onCanvasChanged();
+      });
+      ui.backBtn.addEventListener('click', () => {
+        const single = activeSingle();
+        if (!single) return;
+        fc.sendObjectToBack(single);
+        fc.requestRenderAll();
+        onCanvasChanged();
+      });
+
+      // O8: group / ungroup / lock / duplicate
+      ui.groupBtn.addEventListener('click', groupSelection);
+      ui.ungroupBtn.addEventListener('click', ungroupSelection);
+      ui.lockBtn.addEventListener('click', toggleLockSelection);
+      ui.duplicateBtn.addEventListener('click', duplicateSelection);
+
+      // O8: layers panel decor toggle + live-lint fix button
+      ui.layersDecorToggle.addEventListener('change', refreshLayers);
+      ui.lintBtn.addEventListener('click', () => applyLintFixes());
 
       // image controls
       ui.flipHBtn.addEventListener('click', () => {
@@ -3035,6 +3515,7 @@
           await withServerOp(async () => {
             const state = await sendJson('POST', `/api/design/${encodeURIComponent(posterId)}/apply`, { templateId: pickedTemplateId });
             designState = state;
+            rebuildCtxSwatches(); // palette may have changed with the new template
             // the applied template IS the persisted server state — both
             // orientations reload clean (dirty=false inside the loader)
             await loadLanguageCanvases(state.design.canvas, state.design.landscapeCanvas || null);
@@ -3241,6 +3722,7 @@
         return;
       }
       designState = state;
+      rebuildCtxSwatches(); // O8: context-toolbar swatches from the poster palette
       if (onLoaded) {
         try { onLoaded(state); } catch { /* host callback must not break boot */ }
       }
@@ -3294,11 +3776,12 @@
           }
         });
         sfc.on('mouse:down', () => setFocusedSide(side));
-        sfc.on('selection:created', () => { setFocusedSide(side); renderProps(); updateContextToolbar(); });
-        sfc.on('selection:updated', () => { if (side === focusedSide) { renderProps(); updateContextToolbar(); } });
+        sfc.on('selection:created', () => { setFocusedSide(side); renderProps(); updateContextToolbar(); refreshLayers(); });
+        sfc.on('selection:updated', () => { if (side === focusedSide) { renderProps(); updateContextToolbar(); refreshLayers(); } });
         sfc.on('selection:cleared', () => {
           if (side === focusedSide) {
             renderProps();
+            refreshLayers();
             if (ui.ctxToolbar) ui.ctxToolbar.classList.add('hidden');
             if (ui.imgCtxToolbar) ui.imgCtxToolbar.classList.add('hidden');
           }
@@ -3370,6 +3853,7 @@
         clearTimeout(side.autosaveTimer);
         clearTimeout(side.historyTimer);
         clearTimeout(side.notifyTimer);
+        clearTimeout(side.lintTimer);
         if (side.fc) {
           const disposing = side.fc;
           side.fc = null;
