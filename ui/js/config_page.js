@@ -133,6 +133,7 @@ async function load() {
   for (const f of ORG_FIELDS) $(f).value = orgConfig[f] || '';
   $('orgDomains').value = (orgConfig.orgDomains || []).join(', ');
   $('customSensitiveTerms').value = (orgConfig.customSensitiveTerms || []).join(', ');
+  renderFrameworkPicker(orgConfig.knowledgeFrameworks || []);
   if (orgConfig.brandOverride) {
     const b = orgConfig.brandOverride;
     if (b.primary) $('brandPrimary').value = b.primary;
@@ -150,6 +151,42 @@ async function load() {
   updateProviderKeyChip();
 }
 
+// The 8 seeded frameworks (mirror of rag/knowledge/schema.js FRAMEWORKS).
+const KNOWLEDGE_FRAMEWORKS = [
+  { id: 'GDPR', label: 'GDPR (EU)' },
+  { id: 'DPDP', label: 'DPDP Act (India)' },
+  { id: 'CCPA', label: 'CCPA/CPRA (California)' },
+  { id: 'HIPAA', label: 'HIPAA (US health)' },
+  { id: 'PCI-DSS', label: 'PCI DSS (payments)' },
+  { id: 'ISO-27001', label: 'ISO/IEC 27001' },
+  { id: 'NIST-CSF', label: 'NIST CSF 2.0' },
+  { id: 'CERT-In', label: 'CERT-In (India)' }
+];
+
+/** Render the framework checkbox grid, checking the selected ids. */
+function renderFrameworkPicker(selected) {
+  const grid = $('frameworkGrid');
+  if (!grid) return;
+  const set = new Set(selected);
+  grid.innerHTML = '';
+  for (const fw of KNOWLEDGE_FRAMEWORKS) {
+    const label = document.createElement('label');
+    label.className = 'framework-option';
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.value = fw.id;
+    cb.checked = set.has(fw.id);
+    label.appendChild(cb);
+    label.appendChild(document.createTextNode(' ' + fw.label));
+    grid.appendChild(label);
+  }
+}
+
+/** Selected framework ids from the checkbox grid. */
+function selectedFrameworks() {
+  return [...document.querySelectorAll('#frameworkGrid input[type=checkbox]:checked')].map((c) => c.value);
+}
+
 function putJson(path, body) {
   return api(path, {
     method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
@@ -161,6 +198,7 @@ $('saveOrg').addEventListener('click', async () => {
   for (const f of ORG_FIELDS) body[f] = $(f).value.trim();
   body.orgDomains = splitList($('orgDomains').value);
   body.customSensitiveTerms = splitList($('customSensitiveTerms').value);
+  body.knowledgeFrameworks = selectedFrameworks();
   try {
     await putJson('/api/config', body);
     flash($('orgStatus'), 'Saved. Masking active for these values.');

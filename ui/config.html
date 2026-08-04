@@ -43,6 +43,11 @@
       <input id="orgDomains" placeholder="company.com, corp.company.com"></label>
     <label>Additional sensitive terms (comma-separated; each is masked outbound)
       <input id="customSensitiveTerms" placeholder="Project X, internal tool names…"></label>
+    <fieldset id="knowledgeFrameworks" class="framework-picker">
+      <legend>Legal frameworks to ground posters in</legend>
+      <p class="hint">Posters cite the provisions you select (GDPR Art. 32, DPDP §8…). Leave all unchecked to use every framework.</p>
+      <div class="framework-grid" id="frameworkGrid"></div>
+    </fieldset>
     <button id="saveOrg" class="primary">Save organization config</button>
     <span id="orgStatus" class="status" role="status" aria-live="polite"></span>
   </section>

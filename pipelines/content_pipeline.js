@@ -438,10 +438,14 @@ async function runIntentAndResearch({ ctx, runId, cleaned, override = null }) {
   // lookup never fails the run.
   let knowledge = [];
   try {
+    // Config-page framework picker: when the org selected specific frameworks,
+    // ground only in those; empty/absent → all frameworks.
+    const picked = ctx.vault?.getOrgConfig?.().knowledgeFrameworks;
+    const frameworks = Array.isArray(picked) && picked.length ? picked : undefined;
     knowledge = retrieveKnowledge({
       db, query: refinedIntent.topic,
       keywords: [...refinedIntent.core, ...refinedIntent.expanded],
-      limit: KNOWLEDGE_LIMIT
+      frameworks, limit: KNOWLEDGE_LIMIT
     });
   } catch { knowledge = []; }
   const grounded = articles.length > 0;

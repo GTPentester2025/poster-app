@@ -89,7 +89,7 @@ export class Vault {
       const row = this._get.get(key);
       cfg[key] = row ? JSON.parse(row.value) : '';
     }
-    for (const key of ['orgDomains', 'customSensitiveTerms']) {
+    for (const key of ['orgDomains', 'customSensitiveTerms', 'knowledgeFrameworks']) {
       const row = this._get.get(key);
       cfg[key] = row ? JSON.parse(row.value) : [];
     }
@@ -100,7 +100,7 @@ export class Vault {
 
   setOrgConfig(partial) {
     const now = new Date().toISOString();
-    const allowed = new Set([...ORG_CONFIG_FIELDS, 'orgDomains', 'customSensitiveTerms', 'brandOverride']);
+    const allowed = new Set([...ORG_CONFIG_FIELDS, 'orgDomains', 'customSensitiveTerms', 'knowledgeFrameworks', 'brandOverride']);
     for (const [key, value] of Object.entries(partial || {})) {
       if (!allowed.has(key)) continue; // whitelist — reference repo pattern
       this._set.run(key, JSON.stringify(value ?? ''), now);
