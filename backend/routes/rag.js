@@ -8,6 +8,8 @@ import { newRunId } from '#shared';
 import { ingestAllFeeds } from '../../rag/ingest.js';
 import { importSeedArticles } from '../../rag/seed_import.js';
 import { retrieve } from '../../rag/retrieval.js';
+import { retrieveKnowledge } from '../../rag/knowledge_retriever.js';
+import { FRAMEWORKS, REGIONS, LEVELS } from '../../rag/knowledge/schema.js';
 import { buildContextFile } from '../../rag/context_file.js';
 import {
   getScoringSnapshot, addKeyword, removeKeyword,
@@ -137,6 +139,61 @@ export function ragRouter({ db, egress }) {
       const runId = (typeof body.runId === 'string' && body.runId.trim()) ? body.runId : newRunId('poster');
       const contextFile = await buildContextFile({ db, egress, runId, topic, keywords, articles });
       res.json({ contextFile, articles: articles.length });
+    } catch (err) { next(err); }
+  });
+
+  // Query the levelled knowledge base (statute/guidance corpus). Body:
+  //   { query?, keywords?, frameworks?, regions?, levels?, limit? }
+  // At least one of query/keywords must carry a term. Filters are validated
+  // against the shared contract and rejected with 400 on bad values (never
+  // passed through to SQL). The response is a SAFE VIEW: internal ids and raw
+  // `text` are never returned — only citation/title/summary/obligations/
+  // penalties/topics/posterAngles plus the per-hit score, matching the
+  // no-internal-leakage discipline the other routes follow.
+  router.post('/knowledge', (req, res, next) => {
+    try {
+      const body = req.body || {};
+      const query = typeof body.query === 'string' ? body.query.trim() : '';
+      const keywords = Array.isArray(body.keywords) ? body.keywords.filter((k) => typeof k === 'string') : [];
+      if (!query && !keywords.length) {
+        return res.status(400).json({ error: 'query or keywords must supply at least one search term' });
+      }
+
+      const validList = (val, allowed, label) => {
+        if (val === undefined || val === null) return null;
+        if (!Array.isArray(val) || !val.every((v) => allowed.includes(v))) {
+          return { error: `${label} must be an array of ${allowed.join('|')}` };
+        }
+        return val;
+      };
+      const frameworks = validList(body.frameworks, FRAMEWORKS, 'frameworks');
+      if (frameworks && frameworks.error) return res.status(400).json(frameworks);
+      const regions = validList(body.regions, REGIONS, 'regions');
+      if (regions && regions.error) return res.status(400).json(regions);
+      const levels = validList(body.levels, LEVELS, 'levels');
+      if (levels && levels.error) return res.status(400).json(levels);
+
+      const n = Number(body.limit);
+      const limit = Number.isFinite(n) ? Math.min(50, Math.max(1, Math.trunc(n))) : 10;
+
+      const hits = retrieveKnowledge({ db, query, keywords, frameworks, regions, levels, limit });
+      // Safe projection — drop id and raw `text`; expose only fields other
+      // routes/UI are allowed to render.
+      const results = hits.map((e) => ({
+        framework: e.framework,
+        citation: e.citation,
+        level: e.level,
+        region: e.region,
+        title: e.title,
+        summary: e.summary,
+        obligations: e.obligations,
+        penalties: e.penalties,
+        appliesTo: e.appliesTo,
+        topics: e.topics,
+        posterAngles: e.posterAngles,
+        score: e.score
+      }));
+      res.json({ results, count: results.length });
     } catch (err) { next(err); }
   });
 

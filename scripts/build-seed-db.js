@@ -88,6 +88,34 @@ function createSchema(db) {
     );
     CREATE INDEX idx_images_style ON images(style, format);
 
+    -- v7: levelled knowledge corpus + FTS (mirrors db.js knowledgeCorpusSql)
+    CREATE TABLE knowledge (
+      id TEXT PRIMARY KEY, framework TEXT NOT NULL, citation TEXT NOT NULL,
+      level INTEGER NOT NULL, region TEXT NOT NULL, title TEXT NOT NULL,
+      summary TEXT NOT NULL, text TEXT NOT NULL, obligations TEXT, penalties TEXT,
+      applies_to TEXT, topics TEXT, poster_angles TEXT, seeded INTEGER DEFAULT 0
+    );
+    CREATE INDEX idx_knowledge_framework ON knowledge(framework, level);
+    CREATE INDEX idx_knowledge_region ON knowledge(region);
+    CREATE VIRTUAL TABLE knowledge_fts USING fts5(
+      id UNINDEXED, title, summary, text, topics,
+      content='knowledge', content_rowid='rowid', tokenize='porter unicode61'
+    );
+    CREATE TRIGGER knowledge_ai AFTER INSERT ON knowledge BEGIN
+      INSERT INTO knowledge_fts(rowid, id, title, summary, text, topics)
+      VALUES (new.rowid, new.id, new.title, new.summary, new.text, new.topics);
+    END;
+    CREATE TRIGGER knowledge_ad AFTER DELETE ON knowledge BEGIN
+      INSERT INTO knowledge_fts(knowledge_fts, rowid, id, title, summary, text, topics)
+      VALUES ('delete', old.rowid, old.id, old.title, old.summary, old.text, old.topics);
+    END;
+    CREATE TRIGGER knowledge_au AFTER UPDATE ON knowledge BEGIN
+      INSERT INTO knowledge_fts(knowledge_fts, rowid, id, title, summary, text, topics)
+      VALUES ('delete', old.rowid, old.id, old.title, old.summary, old.text, old.topics);
+      INSERT INTO knowledge_fts(rowid, id, title, summary, text, topics)
+      VALUES (new.rowid, new.id, new.title, new.summary, new.text, new.topics);
+    END;
+
     CREATE TABLE custom_feeds (id TEXT PRIMARY KEY, name TEXT NOT NULL, url TEXT NOT NULL UNIQUE, site TEXT, icon TEXT DEFAULT '➕', added_at TEXT NOT NULL);
     CREATE TABLE egress_log (id INTEGER PRIMARY KEY AUTOINCREMENT, ts TEXT NOT NULL, run_id TEXT NOT NULL, event_id TEXT, pipeline TEXT, stage TEXT, agent TEXT, skill TEXT, direction TEXT NOT NULL, model TEXT NOT NULL, masked_system TEXT, masked_prompt TEXT NOT NULL, masked_response TEXT, duration_ms INTEGER, status TEXT, prompt_tokens INTEGER, completion_tokens INTEGER);
     CREATE INDEX idx_egress_log_run_id ON egress_log(run_id);
@@ -181,6 +209,29 @@ async function buildKnowledgeSeed() {
   if (allArticles.length) {
     seedArticles(db, allArticles);
     console.log(`  Total seeded: ${allArticles.length} articles`);
+  }
+
+  // Levelled knowledge corpus (L0 statute / L1 guidance). The per-framework
+  // corpus files (rag/knowledge/<framework>.js) are authored by other agents and
+  // aggregated in rag/knowledge/index.js (exporting KNOWLEDGE_CORPUS). We seed
+  // through the same validated writer the runtime uses, so a malformed corpus
+  // fails the build loudly rather than shipping a broken seed DB.
+  try {
+    const { seedKnowledge } = await import('../rag/knowledge_seeder.js');
+    let corpus = [];
+    try {
+      const agg = await import('../rag/knowledge/index.js');
+      corpus = agg.KNOWLEDGE_CORPUS || agg.default || [];
+    } catch {
+      console.log('  Knowledge corpus aggregate (rag/knowledge/index.js) not found — skipping (authored by corpus agents)');
+    }
+    if (corpus.length) {
+      const { seeded } = seedKnowledge(db, corpus);
+      console.log(`  Knowledge corpus: ${seeded} entries seeded`);
+    }
+  } catch (e) {
+    console.error('  Knowledge corpus seeding failed:', e.message);
+    throw e;
   }
 
   db.close();

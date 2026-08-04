@@ -23,6 +23,7 @@ const MIGRATIONS = [
   { version: 4, name: 'learning-kind-reroute', sql: learningKindRerouteSql() },
   { version: 5, name: 'egress-token-counts', sql: egressTokenCountsSql() },
   { version: 6, name: 'learning-kind-prompt-review', sql: learningKindPromptReviewSql() },
+  { version: 7, name: 'knowledge-corpus', sql: knowledgeCorpusSql() },
 ];
 
 export function migrate(db) {
@@ -136,6 +137,55 @@ function learningKindPromptReviewSql() {
   `;
 }
 
+
+// v7: levelled knowledge corpus (statute/guidance/threat/org knowledge). Columns
+// mirror rag/knowledge/schema.js toRow() exactly. knowledge_fts is an
+// external-content FTS5 index kept in sync by the same insert/delete/update
+// trigger idiom as articles_fts, so seeding via plain INSERT keeps search
+// current. The primary key is a caller-supplied TEXT id (framework-scoped),
+// so the FTS rowid maps to knowledge.rowid (the implicit integer rowid), and
+// the triggers carry the string id in the UNINDEXED first column for lookup.
+function knowledgeCorpusSql() {
+  return `
+  CREATE TABLE IF NOT EXISTS knowledge (
+    id TEXT PRIMARY KEY,
+    framework TEXT NOT NULL,
+    citation TEXT NOT NULL,
+    level INTEGER NOT NULL,
+    region TEXT NOT NULL,
+    title TEXT NOT NULL,
+    summary TEXT NOT NULL,
+    text TEXT NOT NULL,
+    obligations TEXT,      -- JSON array
+    penalties TEXT,        -- string or null
+    applies_to TEXT,       -- JSON array
+    topics TEXT,           -- comma-joined tags
+    poster_angles TEXT,    -- JSON array
+    seeded INTEGER DEFAULT 0
+  );
+  CREATE INDEX IF NOT EXISTS idx_knowledge_framework ON knowledge(framework, level);
+  CREATE INDEX IF NOT EXISTS idx_knowledge_region ON knowledge(region);
+
+  CREATE VIRTUAL TABLE IF NOT EXISTS knowledge_fts USING fts5(
+    id UNINDEXED, title, summary, text, topics,
+    content='knowledge', content_rowid='rowid', tokenize='porter unicode61'
+  );
+  CREATE TRIGGER IF NOT EXISTS knowledge_ai AFTER INSERT ON knowledge BEGIN
+    INSERT INTO knowledge_fts(rowid, id, title, summary, text, topics)
+    VALUES (new.rowid, new.id, new.title, new.summary, new.text, new.topics);
+  END;
+  CREATE TRIGGER IF NOT EXISTS knowledge_ad AFTER DELETE ON knowledge BEGIN
+    INSERT INTO knowledge_fts(knowledge_fts, rowid, id, title, summary, text, topics)
+    VALUES ('delete', old.rowid, old.id, old.title, old.summary, old.text, old.topics);
+  END;
+  CREATE TRIGGER IF NOT EXISTS knowledge_au AFTER UPDATE ON knowledge BEGIN
+    INSERT INTO knowledge_fts(knowledge_fts, rowid, id, title, summary, text, topics)
+    VALUES ('delete', old.rowid, old.id, old.title, old.summary, old.text, old.topics);
+    INSERT INTO knowledge_fts(rowid, id, title, summary, text, topics)
+    VALUES (new.rowid, new.id, new.title, new.summary, new.text, new.topics);
+  END;
+  `;
+}
 
 function initialSchemaSql() {
   return `

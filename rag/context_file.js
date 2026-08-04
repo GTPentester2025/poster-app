@@ -11,6 +11,27 @@ import { randomUUID } from 'node:crypto';
 const CTX_STAGE = { pipeline: 'content', stage: 'research-synthesis', agent: 'rag-research', skill: 'synthesize_context' };
 const CONTENT_SHAPES = ['red-flags', 'dos-donts', 'description', 'scenario-response'];
 
+// Authoritative provision digest for the synthesis prompt. Unlike articles
+// (dated news), knowledge entries are statute/guidance the model may lean on as
+// ground truth — each is labelled with its citation so the synthesis can be
+// anchored to real provisions. Citations are woven into the SUPPORT material for
+// the model, but the resulting poster copy still never prints a source (the same
+// no-attribution rule articles follow) — the citations[] array on the output is
+// internal grounding metadata for downstream review, not poster text.
+function knowledgeDigest(knowledge) {
+  return knowledge.map((e, i) => {
+    const lines = [
+      `[K${i + 1}] ${e.framework} — ${e.citation}: ${e.title}`,
+      `    ${e.summary}`
+    ];
+    if (Array.isArray(e.obligations) && e.obligations.length) {
+      lines.push(`    obligations: ${e.obligations.join('; ')}`);
+    }
+    if (e.penalties) lines.push(`    penalties: ${e.penalties}`);
+    return lines.join('\n');
+  }).join('\n\n');
+}
+
 function articleDigest(articles) {
   return articles.map((a, i) => {
     const lines = [
@@ -52,10 +73,19 @@ function validateModelOutput(out) {
   return problems;
 }
 
-function buildPrompt({ topic, keywords, articles }) {
+function buildPrompt({ topic, keywords, articles, knowledge = [] }) {
+  // Authoritative provisions (statute/guidance) are presented as GROUND TRUTH the
+  // model may rely on for legal accuracy; articles remain dated, possibly-
+  // tangential news. When knowledge is present the model is told to prefer it for
+  // any compliance claim, and to keep the synthesis faithful to the cited duties.
+  const knowledgeBlock = knowledge.length
+    ? `\nAUTHORITATIVE PROVISIONS (ground truth — prefer these for any legal/compliance claim about "${topic}"):
+${knowledgeDigest(knowledge)}\n`
+    : '';
+
   return `You are the research-synthesis agent for an employee security-awareness poster platform.
 The user's topic is "${topic}". The ${articles.length} articles below were retrieved as POSSIBLE supporting context — they may be tangential or unrelated to "${topic}".
-
+${knowledgeBlock}
 ARTICLES:
 ${articleDigest(articles)}
 
@@ -90,7 +120,7 @@ User's keywords: ${JSON.stringify(keywords || [])}`;
  * after the second failure so the pipeline can surface a real error instead
  * of feeding malformed research downstream.
  */
-export async function buildContextFile({ db: _db, egress, runId, topic, keywords = [], articles = [] }) {
+export async function buildContextFile({ db: _db, egress, runId, topic, keywords = [], articles = [], knowledge = [] }) {
   if (!egress) throw new Error('buildContextFile requires an egress instance');
   if (!runId) throw new Error('buildContextFile requires a runId');
   if (!articles.length) {
@@ -103,7 +133,7 @@ export async function buildContextFile({ db: _db, egress, runId, topic, keywords
   // "normalized" topic (topic-hijack fix: retrieval is security-news heavy,
   // so a model normalization drifted every topic toward 'phishing').
   const intentTopic = String(topic).trim().toLowerCase();
-  const basePrompt = buildPrompt({ topic: intentTopic, keywords, articles });
+  const basePrompt = buildPrompt({ topic: intentTopic, keywords, articles, knowledge });
 
   let out = await egress.completeJson({ user: basePrompt, temperature: 0.3 }, ctx);
   let problems = validateModelOutput(out);
@@ -135,6 +165,12 @@ export async function buildContextFile({ db: _db, egress, runId, topic, keywords
     },
     synthesis: out.synthesis,
     angles: out.angles.map((a) => ({ id: a.id, title: a.title, rationale: a.rationale })),
+    // Provision citations assembled locally from the knowledge hits (never from
+    // the model — attribution must be exact). ADDITIVE field: existing consumers
+    // that read topic/keywords/synthesis/angles/sources are unaffected; when the
+    // run had no knowledge grounding this is an empty array. Ids stay internal
+    // (grounding/audit trail), poster copy never prints them.
+    citations: knowledge.map((e) => ({ citation: e.citation, framework: e.framework, id: e.id })),
     // Attribution assembled from the retrieval rows verbatim — internal logs
     // only, never printed on the poster (schema: sources.description).
     sources: articles.map((a) => ({

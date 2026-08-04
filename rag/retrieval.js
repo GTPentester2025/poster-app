@@ -17,6 +17,7 @@
 
 import * as scoring from './scoring.js';
 import { getScoringSnapshot } from './keyword_store.js';
+import { retrieveKnowledge } from './knowledge_retriever.js';
 
 const RECENCY_HALF_LIFE_DAYS = 30;
 const RECENCY_MAGNITUDE = 10;
@@ -89,4 +90,90 @@ export function retrieve(db, keywords, { limit = 10, snapshot = null } = {}) {
 
   scored.sort((a, b) => b.finalScore - a.finalScore);
   return scored.slice(0, limit);
+}
+
+// ── Multi-level fusion (RRF) ──────────────────────────────────────────────────
+//
+// retrieveMultiLevel fuses two retrieval paths that score on incomparable
+// scales — the levelled knowledge corpus (L0 statute / L1 guidance, score =
+// bm25+topic) and the news index (L2 threat feeds, finalScore = fts+keywords+
+// recency) — into one ranking. Directly comparing their raw scores would be
+// meaningless (a knowledge score of 13 is not "better" than an article score of
+// 8), so we use Reciprocal Rank Fusion: each list contributes 1/(k+rank) per
+// item (rank 0-based), and an item's fused score is the SUM across the lists it
+// appears in. RRF depends only on POSITION, not raw magnitude, so it blends the
+// two scales fairly and rewards items that rank well in either path. k=60 is the
+// standard RRF constant (Cormack et al.): large enough that top ranks are not
+// wildly over-weighted, small enough that rank still matters.
+//
+// Dedup is by a namespaced id — knowledge ids are strings (framework-scoped),
+// article ids are integers, so collisions across sources cannot happen, but we
+// still merge duplicates WITHIN a list defensively (first occurrence wins).
+
+const RRF_K = 60;
+
+/**
+ * Compute Reciprocal Rank Fusion over N ranked lists.
+ * @param {Array<{items: object[], idOf: (o:object)=>string, level: number}>} lists
+ * @param {number} k RRF constant (default 60)
+ * @returns {object[]} fused, dedup'd items each with { rrfScore, sources[] }, sorted desc
+ */
+export function reciprocalRankFusion(lists, k = RRF_K) {
+  const byId = new Map();
+  for (const { items, idOf, level } of lists) {
+    const seenInList = new Set();
+    items.forEach((item, rank) => {
+      const id = idOf(item);
+      if (seenInList.has(id)) return; // dedup within a single list (first wins)
+      seenInList.add(id);
+      const contribution = 1 / (k + rank);
+      const existing = byId.get(id);
+      if (existing) {
+        existing.rrfScore += contribution;
+        existing.sources.push({ level, rank });
+      } else {
+        byId.set(id, { ...item, id, rrfScore: contribution, sources: [{ level, rank }] });
+      }
+    });
+  }
+  return [...byId.values()].sort((a, b) => b.rrfScore - a.rrfScore);
+}
+
+/**
+ * Retrieve across levels and fuse with RRF. L0/L1 come from the `knowledge`
+ * corpus (levelled retriever), L2 from the existing news article path. The
+ * EXISTING retrieve() is untouched — this is additive; the content pipeline can
+ * opt into grounded, cited retrieval without changing the news-only path.
+ *
+ * @param {object} opts
+ * @param {import('better-sqlite3').Database} opts.db
+ * @param {string} [opts.query]
+ * @param {string[]} [opts.keywords]
+ * @param {string[]} [opts.frameworks]  filter for the knowledge path
+ * @param {string[]} [opts.regions]     filter for the knowledge path
+ * @param {number[]} [opts.levels]      which knowledge levels to pull (default [0,1])
+ * @param {number} [opts.knowledgeLimit=10]
+ * @param {number} [opts.articleLimit=10]
+ * @param {number} [opts.limit=10]      final fused list cap
+ * @param {number} [opts.k=60]          RRF constant
+ * @returns {{ fused: object[], knowledge: object[], articles: object[] }}
+ */
+export function retrieveMultiLevel({
+  db, query = '', keywords = [], frameworks = null, regions = null,
+  levels = [0, 1], knowledgeLimit = 10, articleLimit = 10, limit = 10, k = RRF_K, snapshot = null
+} = {}) {
+  const terms = [
+    ...String(query || '').split(/\s+/),
+    ...(keywords || [])
+  ].map((s) => String(s || '').trim()).filter(Boolean);
+
+  const knowledge = retrieveKnowledge({ db, query, keywords, frameworks, regions, levels, limit: knowledgeLimit });
+  const articles = retrieve(db, terms, { limit: articleLimit, snapshot });
+
+  const fused = reciprocalRankFusion([
+    { items: knowledge, idOf: (e) => `k:${e.id}`, level: 0 },
+    { items: articles, idOf: (a) => `a:${a.id}`, level: 2 }
+  ], k).slice(0, limit);
+
+  return { fused, knowledge, articles };
 }
