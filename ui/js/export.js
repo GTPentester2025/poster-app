@@ -19,9 +19,10 @@
 //   the FIRST color stop (pptx gradient support isn't worth the fidelity —
 //   template washes sit at opacity <= 0.15 where a solid tint is
 //   indistinguishable). HTML export keeps the real CSS linear-gradient.
-// - Polygons → pptx rect over the polygon's bounding box with the same fill
-//   (pptxgenjs has no freeform point shape). HTML export keeps the true
-//   silhouette via CSS clip-path.
+// - Polygons/Triangles → pptx custGeom (freeform) with the real vertices, so
+//   chevrons/arrows/slabs keep their silhouette in the deck; degenerate/point-
+//   less polygons fall back to a bounding-box rect. HTML keeps the CSS
+//   clip-path silhouette.
 // - Low-opacity decor: objects keep their transparency in pptx
 //   (fill/line transparency = (1-opacity)*100%), EXCEPT objects below
 //   opacity 0.06 which are skipped — sub-6% washes are invisible in print
@@ -236,6 +237,15 @@
     const lineHex = normHex(obj.stroke);
     if (!fillHex && !lineHex) return null; // nothing paintable
 
+    // Polygons/triangles render as TRUE freeform geometry (pptx custGeom), not
+    // a bounding-box rect — decor slabs/arrows/chevrons keep their real
+    // silhouette in the deck. Falls back to the rect path below when points are
+    // missing or degenerate.
+    if ((obj.type === 'Polygon' || obj.type === 'Triangle')) {
+      const free = polygonFreeform(obj, ppi, fillHex, lineHex, opacity);
+      if (free) return free;
+    }
+
     let shapeType = 'rect';
     let x = obj.left || 0;
     let y = obj.top || 0;
@@ -275,6 +285,36 @@
     }
     if (obj.angle) options.rotate = Math.round(obj.angle);
     return { kind: 'shape', shapeType, options };
+  }
+
+  /**
+   * Polygon/Triangle → pptx custGeom (freeform) item, or null when the object
+   * lacks a usable point list (caller then falls back to a bbox rect). Points
+   * are absolute canvas coords (templates/helpers.js polygon()); we place the
+   * shape at the point bbox and give each vertex as an inch offset from it.
+   */
+  function polygonFreeform(obj, ppi, fillHex, lineHex, opacity) {
+    const pts = Array.isArray(obj.points) ? obj.points.filter((p) => p && Number.isFinite(p.x) && Number.isFinite(p.y)) : [];
+    if (pts.length < 3) return null;
+    const sx = obj.scaleX || 1, sy = obj.scaleY || 1;
+    const xs = pts.map((p) => p.x), ys = pts.map((p) => p.y);
+    const minX = Math.min(...xs), minY = Math.min(...ys);
+    const wPx = (Math.max(...xs) - minX) * sx, hPx = (Math.max(...ys) - minY) * sy;
+    if (wPx <= 0 || hPx <= 0) return null;
+    const baseX = (obj.left != null ? obj.left : minX);
+    const baseY = (obj.top != null ? obj.top : minY);
+    const points = pts.map((p) => ({ x: pxToIn((p.x - minX) * sx, ppi), y: pxToIn((p.y - minY) * sy, ppi) }));
+    points.push({ close: true });
+    const transparency = transparencyPct(opacity);
+    const options = {
+      x: pxToIn(baseX, ppi), y: pxToIn(baseY, ppi),
+      w: pxToIn(wPx, ppi), h: pxToIn(hPx, ppi),
+      points,
+      fill: fillHex ? { color: fillHex, transparency } : { color: lineHex, transparency: 100 }
+    };
+    if (lineHex) options.line = { color: lineHex, width: pxToPt(obj.strokeWidth || 1, ppi), transparency };
+    if (obj.angle) options.rotate = Math.round(obj.angle);
+    return { kind: 'shape', shapeType: 'custGeom', options };
   }
 
   /** Image → pptx addImage spec (src fetched by the browser layer). */
@@ -527,7 +567,7 @@
     normHex, isGradientFill, firstStopColor, solidColor, gradientCss,
     boldFrom, alignFrom, objOpacity, transparencyPct,
     estLines, textHeightPx,
-    mapTextbox, mapShapeObj, mapImageObj, mapObject, mapCanvasToPptx,
+    mapTextbox, mapShapeObj, polygonFreeform, mapImageObj, mapObject, mapCanvasToPptx,
     escapeHtml, objectHtml, buildHtmlDocument
   };
 
