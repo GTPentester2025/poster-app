@@ -26,7 +26,9 @@
 //   (fill/line transparency = (1-opacity)*100%), EXCEPT objects below
 //   opacity 0.06 which are skipped — sub-6% washes are invisible in print
 //   and only bloat the deck. HTML and JPEG keep every object at true opacity.
-// - Textbox charSpacing is ignored in pptx (kept as letter-spacing in HTML).
+// - Textbox charSpacing maps to pptx letter tracking (charSpacing pt =
+//   (fabric charSpacing / 1000) * fontSizePt); also kept as CSS letter-spacing
+//   in HTML.
 
 (function () {
   'use strict';
@@ -210,8 +212,13 @@
       fit: 'shrink',
       wrap: true,
       lineSpacingMultiple: obj.lineHeight || DEFAULT_LINE_HEIGHT
-      // charSpacing intentionally ignored in pptx (see header)
     };
+    // charSpacing (letter tracking): fabric stores it in 1/1000 em; pptxgenjs
+    // addText takes points. points = (charSpacing/1000) * fontSizePt. Headlines
+    // that were tracked tight/wide in-template now read the same in the deck.
+    if (obj.charSpacing) {
+      options.charSpacing = Math.round((obj.charSpacing / 1000) * options.fontSize * 100) / 100;
+    }
     if (obj.angle) options.rotate = Math.round(obj.angle);
     return { kind: 'text', text, options };
   }
