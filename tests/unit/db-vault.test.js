@@ -80,6 +80,17 @@ function freshVault() {
   return new Vault({ db: new Database(':memory:') });
 }
 
+test('knowledgeFrameworks defaults to [] and round-trips through org config', () => {
+  const vault = freshVault();
+  assert.deepEqual(vault.getOrgConfig().knowledgeFrameworks, []);
+  const saved = vault.setOrgConfig({ knowledgeFrameworks: ['GDPR', 'DPDP', 'ISO-27001'] });
+  assert.deepEqual(saved.knowledgeFrameworks, ['GDPR', 'DPDP', 'ISO-27001']);
+  assert.deepEqual(vault.getOrgConfig().knowledgeFrameworks, ['GDPR', 'DPDP', 'ISO-27001']);
+  // partial update leaves it untouched
+  vault.setOrgConfig({ orgName: 'Acme' });
+  assert.deepEqual(vault.getOrgConfig().knowledgeFrameworks, ['GDPR', 'DPDP', 'ISO-27001']);
+});
+
 test('provider config defaults to openai and round-trips custom per-role selection', () => {
   const vault = freshVault();
   assert.deepEqual(vault.getProviderConfig(), DEFAULT_PROVIDER_CONFIG);

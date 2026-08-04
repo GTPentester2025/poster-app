@@ -148,18 +148,21 @@ test('stroke-only shapes get a 100%-transparent fill (never theme default)', () 
 
 // ── shape approximations ─────────────────────────────────────────────────────
 
-test('polygon → bounding-box rect (documented approximation)', () => {
+test('polygon → freeform custGeom over the point bbox (real silhouette)', () => {
   const tri = {
     type: 'Polygon', left: 100, top: 200, width: 300, height: 400,
     points: [{ x: 100, y: 600 }, { x: 250, y: 200 }, { x: 400, y: 600 }],
     fill: '#334455', opacity: 0.2
   };
   const spec = X.mapShapeObj(tri, 200);
-  assert.equal(spec.shapeType, 'rect');
-  assert.equal(spec.options.x, 0.5);   // 100/200
-  assert.equal(spec.options.y, 1);     // 200/200
+  assert.equal(spec.shapeType, 'custGeom');
+  assert.equal(spec.options.x, 0.5);   // left 100/200
+  assert.equal(spec.options.y, 1);     // top 200/200
   assert.equal(spec.options.w, 1.5);   // 300/200
   assert.equal(spec.options.h, 2);     // 400/200
+  // apex (250,200) is centered horizontally, at the top of the bbox
+  assert.deepEqual(spec.options.points[1], { x: 0.75, y: 0 });
+  assert.equal(spec.options.points.at(-1).close, true);
   assert.equal(spec.options.fill.color, '334455');
 });
 
@@ -354,6 +357,46 @@ test('mapTextbox: charSpacing maps to pptx letter tracking in points', () => {
   // no charSpacing → option omitted (not 0)
   const plain = { type: 'Textbox', text: 'Hi', left: 0, top: 0, width: 400, fontSize: 40 };
   assert.equal('charSpacing' in X.mapTextbox(plain, 200).options, false);
+});
+
+// ── polygon freeform ─────────────────────────────────────────────────────────
+
+test('polygonFreeform: real vertices as inch offsets from the bbox, auto-closed', () => {
+  // triangle at canvas (100,100)-(300,100)-(200,300); helpers.polygon sets
+  // left/top to the point-bbox min and width/height to its span.
+  const poly = {
+    type: 'Polygon', fill: '#C8102E',
+    points: [{ x: 100, y: 100 }, { x: 300, y: 100 }, { x: 200, y: 300 }],
+    left: 100, top: 100, width: 200, height: 200
+  };
+  const item = X.polygonFreeform(poly, 200, 'C8102E', null, 1);
+  assert.equal(item.shapeType, 'custGeom');
+  // bbox → inches at 200ppi: x=0.5, y=0.5, w=1, h=1
+  assert.equal(item.options.x, 0.5);
+  assert.equal(item.options.w, 1);
+  // first vertex at origin of bbox, apex centered at bottom
+  assert.deepEqual(item.options.points[0], { x: 0, y: 0 });
+  assert.deepEqual(item.options.points[1], { x: 1, y: 0 });
+  assert.deepEqual(item.options.points[2], { x: 0.5, y: 1 });
+  assert.deepEqual(item.options.points[3], { close: true });
+  assert.equal(item.options.fill.color, 'C8102E');
+});
+
+test('polygonFreeform: fewer than 3 points → null (caller falls back to bbox rect)', () => {
+  assert.equal(X.polygonFreeform({ type: 'Polygon', points: [{ x: 0, y: 0 }] }, 200, 'FFFFFF', null, 1), null);
+  // and mapShapeObj still produces a rect for a pointless polygon
+  const rectItem = X.mapShapeObj({ type: 'Polygon', fill: '#000000', left: 0, top: 0, width: 100, height: 100 }, 200);
+  assert.equal(rectItem.shapeType, 'rect');
+});
+
+test('mapShapeObj: a valid polygon routes to custGeom, not rect', () => {
+  const item = X.mapShapeObj({
+    type: 'Polygon', fill: '#E3AF32',
+    points: [{ x: 0, y: 0 }, { x: 200, y: 0 }, { x: 200, y: 200 }, { x: 0, y: 200 }],
+    left: 0, top: 0, width: 200, height: 200
+  }, 200);
+  assert.equal(item.shapeType, 'custGeom');
+  assert.equal(item.options.points.length, 5); // 4 vertices + close
 });
 
 // ── text height estimation ───────────────────────────────────────────────────
