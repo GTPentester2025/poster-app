@@ -22,6 +22,7 @@
 import { randomUUID } from 'node:crypto';
 import { newRunId } from '#shared';
 import { retrieve } from '../rag/retrieval.js';
+import { retrieveKnowledge } from '../rag/knowledge_retriever.js';
 import { buildContextFile } from '../rag/context_file.js';
 import { extractIntent } from '../agents/keyword_intent.js';
 import { generateContent, generateContentV2, validatePosterContent, normalizePosterContent } from '../agents/content_generator.js';
@@ -40,6 +41,7 @@ import { reviewPrompting } from '../agents/overseer.js';
 const PROJECT = 'poster-app';
 const PIPELINE = 'content';
 const RETRIEVAL_LIMIT = 10;
+const KNOWLEDGE_LIMIT = 6;
 const LEARNING_ROW_LIMIT = 20;
 // The content gate is 95. Rather than dead-end the user when a draft converges
 // just short of it, accept the best attempt at or above this floor (flagged
@@ -430,9 +432,21 @@ async function runIntentAndResearch({ ctx, runId, cleaned, override = null }) {
     }
   });
   const articles = retrieve(db, [...refinedIntent.core, ...refinedIntent.expanded], { limit: RETRIEVAL_LIMIT });
+  // Level-0/1 legal grounding: cited provisions from the multi-framework
+  // knowledge base (empty until the corpus is seeded, e.g. in unit-test DBs —
+  // then this is a no-op and behaviour is unchanged). Best-effort: a knowledge
+  // lookup never fails the run.
+  let knowledge = [];
+  try {
+    knowledge = retrieveKnowledge({
+      db, query: refinedIntent.topic,
+      keywords: [...refinedIntent.core, ...refinedIntent.expanded],
+      limit: KNOWLEDGE_LIMIT
+    });
+  } catch { knowledge = []; }
   const grounded = articles.length > 0;
-  const contextFile = grounded
-    ? await buildContextFile({ db, egress, runId, topic: refinedIntent.topic, keywords: refinedIntent.core, articles })
+  const contextFile = (grounded || knowledge.length > 0)
+    ? await buildContextFile({ db, egress, runId, topic: refinedIntent.topic, keywords: refinedIntent.core, articles, knowledge })
     : await buildUngroundedContextFile({ egress, runId, intent: refinedIntent });
   // the intent agent saw the raw prompt; keep its shape detection when the
   // research synthesis did not set one

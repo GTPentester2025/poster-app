@@ -336,3 +336,45 @@ button[data-en-only][disabled]:hover { border-color: var(--line); }
   .ctx-swatch { transition: none; }
   .ctx-btn { transition: none; }
 }
+
+/* ── O8: contrast readout in the context toolbar ────────────────────────────── */
+.ctx-contrast {
+  display: inline-block; min-width: 34px; text-align: center;
+  font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums;
+  padding: 1px 5px; border-radius: 999px; line-height: 1.5;
+}
+.ctx-contrast:empty { display: none; }
+.ctx-contrast-ok { color: var(--success, #16a34a); background: rgba(22,163,74,0.12); }
+.ctx-contrast-bad { color: var(--danger, #c0102e); background: rgba(192,16,46,0.12); }
+
+/* ── O8: live-lint toolbar badge ────────────────────────────────────────────── */
+.ed-lint-btn {
+  font-size: 12px; font-weight: 700; padding: 5px 12px; white-space: nowrap;
+  border-radius: var(--radius-sm, 8px);
+}
+.ed-lint-btn.ed-lint-ok { color: var(--success, #16a34a); border-color: var(--success, #16a34a); opacity: 0.85; }
+.ed-lint-btn.ed-lint-fix { color: #16130a; background: var(--gold, #e3af32); border-color: var(--gold, #e3af32); }
+.ed-lint-btn.ed-lint-warn { color: var(--danger, #c0102e); border-color: var(--danger, #c0102e); }
+
+/* ── O8: layers panel (tool rail) ───────────────────────────────────────────── */
+.ed-layers-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.ed-layers-decor { font-size: 11px; color: var(--muted); font-weight: 500; display: inline-flex; align-items: center; gap: 4px; margin: 0; cursor: pointer; }
+.ed-layers-decor input { width: auto; margin: 0; }
+.ed-layers-list { display: flex; flex-direction: column; gap: 2px; max-height: 260px; overflow-y: auto; }
+.ed-layer-row {
+  display: flex; align-items: center; gap: 4px; padding: 3px 4px;
+  border-radius: 6px; cursor: pointer; border: 1px solid transparent;
+}
+.ed-layer-row:hover { background: var(--bg2); }
+.ed-layer-row.active { border-color: var(--gold); background: rgba(227,175,50,0.10); }
+.ed-layer-eye, .ed-layer-move {
+  flex: 0 0 auto; border: 0; background: transparent; cursor: pointer;
+  font-size: 12px; padding: 1px 3px; line-height: 1; color: var(--muted);
+}
+.ed-layer-eye:hover, .ed-layer-move:hover { color: var(--text); }
+.ed-layer-name {
+  flex: 1; min-width: 0; font-size: 12px; color: var(--text);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.ed-layer-name.ed-layer-locked { color: var(--muted); font-style: italic; }
+.ed-layer-name.ed-layer-locked::after { content: ' 🔒'; font-style: normal; }

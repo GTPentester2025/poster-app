@@ -346,6 +346,16 @@ test('mapTextbox: autofit shrink keeps substituted fonts inside their box', () =
   assert.equal(spec.options.wrap, true);
 });
 
+test('mapTextbox: charSpacing maps to pptx letter tracking in points', () => {
+  // fontSize 100px @ 200ppi → 36pt; charSpacing 50 (1/1000 em) → 0.05em → 1.8pt
+  const tracked = { type: 'Textbox', text: 'SECURITY', left: 0, top: 0, width: 800, fontSize: 100, charSpacing: 50 };
+  const spec = X.mapTextbox(tracked, 200);
+  assert.equal(spec.options.charSpacing, 1.8);
+  // no charSpacing → option omitted (not 0)
+  const plain = { type: 'Textbox', text: 'Hi', left: 0, top: 0, width: 400, fontSize: 40 };
+  assert.equal('charSpacing' in X.mapTextbox(plain, 200).options, false);
+});
+
 // ── text height estimation ───────────────────────────────────────────────────
 
 test('textHeightPx: serialized height wins; otherwise wrap estimate scales with text', () => {

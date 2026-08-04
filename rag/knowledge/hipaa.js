@@ -1,0 +1,388 @@
+// HIPAA knowledge corpus — the Health Insurance Portability and Accountability
+// Act of 1996 and its implementing rules (Privacy, Security, and Breach
+// Notification Rules) at 45 CFR Parts 160 and 164, as amended by the HITECH Act
+// and the Omnibus Rule. Each entry conforms to the KnowledgeEntry contract in
+// ./schema.js (region 'US', framework 'HIPAA').
+//
+// Content policy: summary/text are authoritative PARAPHRASE — plain-language,
+// accurate, never a verbatim rule dump. CFR citations are approximate where the
+// exact subsection is not load-bearing.
+
+/** @type {import('./schema.js')} */
+const entries = [
+  // ─────────────────────────── Privacy Rule ───────────────────────────
+  {
+    id: 'hipaa-phi-definition',
+    framework: 'HIPAA',
+    citation: 'HIPAA Privacy Rule §160.103',
+    level: 0,
+    region: 'US',
+    title: 'Protected Health Information (PHI) Defined',
+    summary: 'PHI is individually identifiable health information held or transmitted by a covered entity or business associate, in any form.',
+    text: 'Protected health information (PHI) is individually identifiable health information — data relating to a person\'s past, present, or future physical or mental health, the provision of care, or payment for care — that is created, received, maintained, or transmitted by a covered entity or business associate, in any medium (electronic, paper, or oral). Electronic PHI is called ePHI. Information is de-identified, and no longer PHI, only when the 18 HIPAA identifiers are removed or an expert certifies a very small re-identification risk.',
+    obligations: ['Treat any health data tied to an identifiable person as PHI', 'Protect PHI in every form — electronic, paper, and spoken', 'Only rely on de-identification when the strict HIPAA standard is met'],
+    penalties: null,
+    appliesTo: ['covered-entities', 'business-associates', 'workforce'],
+    topics: ['PHI', 'ePHI', 'definition', 'protected health information', 'de-identification', 'identifiers'],
+    posterAngles: ['A patient name plus any health detail is protected information', 'PHI is protected on paper, on screen, and out loud', 'Even a diagnosis whispered in a hallway can be a PHI breach']
+  },
+  {
+    id: 'hipaa-minimum-necessary',
+    framework: 'HIPAA',
+    citation: 'HIPAA Privacy Rule §164.502(b)',
+    level: 0,
+    region: 'US',
+    title: 'Minimum Necessary Standard',
+    summary: 'When using or disclosing PHI, limit it to the minimum reasonably needed to accomplish the purpose.',
+    text: 'The minimum necessary standard requires covered entities and business associates to make reasonable efforts to use, disclose, and request only the minimum amount of PHI needed for a given purpose. It applies to internal access (workforce members should see only the PHI their role requires) and to disclosures and requests. Key exceptions include disclosures to a provider for treatment, disclosures to the individual, uses authorised by the patient, and disclosures required by law.',
+    obligations: ['Access only the PHI your specific job task requires', 'Disclose or request the minimum PHI needed for the purpose', 'Apply role-based access so staff see only what they need'],
+    penalties: null,
+    appliesTo: ['covered-entities', 'business-associates', 'workforce'],
+    topics: ['minimum necessary', 'least privilege', 'access control', 'need to know', 'disclosure'],
+    posterAngles: ['See only the patient records your job actually requires', 'Snooping in charts you have no reason to open is a violation', 'Share the minimum PHI needed — never dump the whole record']
+  },
+  {
+    id: 'hipaa-permitted-uses-disclosures',
+    framework: 'HIPAA',
+    citation: 'HIPAA Privacy Rule §164.502 / §164.506',
+    level: 0,
+    region: 'US',
+    title: 'Permitted Uses & Disclosures',
+    summary: 'PHI may be used or disclosed without authorisation for treatment, payment, and healthcare operations; most other uses need patient authorisation.',
+    text: 'The Privacy Rule permits PHI to be used or disclosed without patient authorisation for treatment, payment, and healthcare operations (TPO), and for certain public-interest and required-by-law purposes. It also allows disclosure to the individual and, informally, to family involved in care unless the patient objects. Uses beyond these — such as marketing, sale of PHI, or most disclosures to third parties — generally require a valid written authorisation from the patient.',
+    obligations: ['Limit routine PHI use to treatment, payment, and operations', 'Obtain written patient authorisation for marketing, sale, or other non-TPO uses', 'Honour a patient\'s objection to informal disclosures to family or friends'],
+    penalties: null,
+    appliesTo: ['covered-entities', 'business-associates', 'workforce'],
+    topics: ['permitted uses', 'disclosures', 'treatment payment operations', 'TPO', 'authorization', 'marketing'],
+    posterAngles: ['Treatment, payment, and operations — those are the routine OK uses', 'Marketing with patient data needs written authorisation first', 'If a use is not TPO, stop and check before you disclose']
+  },
+  {
+    id: 'hipaa-notice-privacy-practices',
+    framework: 'HIPAA',
+    citation: 'HIPAA Privacy Rule §164.520',
+    level: 0,
+    region: 'US',
+    title: 'Notice of Privacy Practices (NPP)',
+    summary: 'Covered entities must give patients a clear notice describing how their PHI is used and disclosed and what rights they have.',
+    text: 'The Notice of Privacy Practices (NPP) tells individuals how a covered entity may use and disclose their PHI, the individual\'s rights (access, amendment, accounting, restriction, confidential communication), and the entity\'s legal duties. Providers with a direct treatment relationship must provide the NPP at first service and make a good-faith effort to obtain written acknowledgment of receipt, and post it prominently including on any website.',
+    obligations: ['Provide the NPP at the first delivery of service', 'Make a good-faith effort to obtain written acknowledgment of receipt', 'Post the NPP prominently, including on the organisation\'s website'],
+    penalties: null,
+    appliesTo: ['covered-entities', 'workforce'],
+    topics: ['notice of privacy practices', 'NPP', 'patient rights', 'transparency', 'disclosure'],
+    posterAngles: ['Patients get a plain notice of how their health data is used', 'Hand over the privacy notice at the first visit — and log it', 'The NPP lists every right; make sure patients can actually read it']
+  },
+  {
+    id: 'hipaa-right-access',
+    framework: 'HIPAA',
+    citation: 'HIPAA Privacy Rule §164.524',
+    level: 0,
+    region: 'US',
+    title: 'Patient Right of Access',
+    summary: 'Patients have the right to inspect and obtain a copy of their PHI in a designated record set, usually within 30 days.',
+    text: 'Individuals have the right to access, inspect, and obtain copies of their PHI held in a designated record set. Covered entities must act on a request within 30 days (one 30-day extension is allowed with notice), provide the records in the form and format requested if readily producible (including electronic copies), and may charge only a reasonable, cost-based fee. Improperly denying or delaying access is one of the most commonly enforced HIPAA violations.',
+    obligations: ['Provide access to a patient\'s records within 30 days of the request', 'Supply electronic copies when the patient asks and it is feasible', 'Charge only a reasonable, cost-based fee for copies'],
+    penalties: null,
+    appliesTo: ['covered-entities', 'workforce'],
+    topics: ['right of access', 'patient rights', 'medical records', 'copies', 'designated record set'],
+    posterAngles: ['Patients own the right to see and get a copy of their records', 'Delaying or blocking record access is a top enforcement target', 'Give records in the format the patient asked for, when you can']
+  },
+  {
+    id: 'hipaa-right-amendment',
+    framework: 'HIPAA',
+    citation: 'HIPAA Privacy Rule §164.526',
+    level: 0,
+    region: 'US',
+    title: 'Patient Right to Amendment',
+    summary: 'Patients can request corrections to inaccurate or incomplete PHI in their records.',
+    text: 'The right to amendment lets individuals ask a covered entity to amend PHI in a designated record set that they believe is inaccurate or incomplete. The entity must act within 60 days (one 30-day extension allowed). If it agrees, it amends the record and notifies relevant parties; if it denies, it must give a written explanation and let the individual submit a statement of disagreement that is linked to the record.',
+    obligations: ['Act on an amendment request within 60 days', 'Amend records and notify relevant parties when a request is granted', 'Provide written reasons and allow a statement of disagreement on denial'],
+    penalties: null,
+    appliesTo: ['covered-entities', 'workforce'],
+    topics: ['right to amendment', 'correction', 'patient rights', 'data accuracy', 'medical records'],
+    posterAngles: ['Patients can ask to correct wrong information in their chart', 'A denied amendment still earns the patient a statement on file', 'Wrong data in a record can lead to wrong care — take fixes seriously']
+  },
+  {
+    id: 'hipaa-accounting-disclosures',
+    framework: 'HIPAA',
+    citation: 'HIPAA Privacy Rule §164.528',
+    level: 0,
+    region: 'US',
+    title: 'Right to an Accounting of Disclosures',
+    summary: 'Patients can request a list of certain disclosures of their PHI made by a covered entity.',
+    text: 'Individuals have the right to receive an accounting of certain disclosures of their PHI made in the six years before the request. The accounting excludes disclosures for treatment, payment, and healthcare operations, disclosures to the individual, and those made under an authorisation. The entity must provide the accounting within 60 days (one 30-day extension), and the first accounting in any 12-month period must be free.',
+    obligations: ['Track disclosures of PHI so an accounting can be produced', 'Provide the accounting within 60 days of the request', 'Give the first accounting in a 12-month period free of charge'],
+    penalties: null,
+    appliesTo: ['covered-entities', 'workforce'],
+    topics: ['accounting of disclosures', 'patient rights', 'audit trail', 'disclosure tracking', 'transparency'],
+    posterAngles: ['Patients can ask who their health data was disclosed to', 'Logging disclosures now is what makes an accounting possible later', 'Track where PHI goes — you may have to account for it']
+  },
+  {
+    id: 'hipaa-right-restrictions',
+    framework: 'HIPAA',
+    citation: 'HIPAA Privacy Rule §164.522',
+    level: 0,
+    region: 'US',
+    title: 'Right to Request Restrictions & Confidential Communication',
+    summary: 'Patients can request limits on how their PHI is used or shared and ask to be contacted by alternate means.',
+    text: 'Individuals may request restrictions on the use or disclosure of their PHI for treatment, payment, or operations. Covered entities generally need not agree, with one key exception: they must honour a request to restrict disclosure to a health plan when the individual pays for the service in full out of pocket. Patients may also request confidential communications — for example being reached only at a specific phone number or address — which providers must reasonably accommodate.',
+    obligations: ['Honour a restriction to a health plan when the patient pays in full out of pocket', 'Reasonably accommodate requests for confidential communication channels', 'Document agreed restrictions so all staff can follow them'],
+    penalties: null,
+    appliesTo: ['covered-entities', 'workforce'],
+    topics: ['restrictions', 'confidential communication', 'patient rights', 'out of pocket', 'privacy'],
+    posterAngles: ['Pay out of pocket? Patients can block that visit from their insurer', 'Honour how a patient wants to be contacted — it is their right', 'Agreed restrictions bind everyone; make sure the team knows them']
+  },
+
+  // ─────────────────── Security Rule — administrative ───────────────────
+  {
+    id: 'hipaa-security-risk-analysis',
+    framework: 'HIPAA',
+    citation: 'HIPAA Security Rule §164.308(a)(1)',
+    level: 0,
+    region: 'US',
+    title: 'Administrative Safeguards — Risk Analysis',
+    summary: 'Covered entities and business associates must conduct an accurate, thorough risk analysis of threats to ePHI and manage those risks.',
+    text: 'The Security Rule\'s foundational administrative safeguard is the security management process, which requires an accurate and thorough risk analysis of potential risks and vulnerabilities to the confidentiality, integrity, and availability of ePHI, followed by risk management to reduce those risks to a reasonable level. The risk analysis must be ongoing, not one-time, and drives the choice of the other safeguards. Its absence or inadequacy is a frequent OCR enforcement finding.',
+    obligations: ['Conduct an accurate, thorough, and ongoing risk analysis of ePHI risks', 'Implement risk-management measures to reduce identified risks', 'Document the analysis and update it as systems and threats change'],
+    penalties: null,
+    appliesTo: ['covered-entities', 'business-associates'],
+    topics: ['risk analysis', 'administrative safeguards', 'security management', 'ePHI', 'risk management'],
+    posterAngles: ['You cannot protect ePHI you have never risk-assessed', 'A stale risk analysis is a top reason organisations get fined', 'Risk analysis is ongoing — not a one-and-done checkbox']
+  },
+  {
+    id: 'hipaa-security-workforce-training',
+    framework: 'HIPAA',
+    citation: 'HIPAA Security Rule §164.308(a)(5)',
+    level: 0,
+    region: 'US',
+    title: 'Administrative Safeguards — Workforce Training & Awareness',
+    summary: 'Organisations must provide a security awareness and training program for all workforce members who handle ePHI.',
+    text: 'The Security Rule requires a security awareness and training program for all members of the workforce, including management. It calls for periodic security reminders, protection from malicious software, log-in monitoring, and password management guidance. Training turns the abstract safeguards into everyday behaviour — recognising phishing, locking screens, reporting incidents — and is essential because most breaches begin with a human action.',
+    obligations: ['Train all workforce members, including management, on security awareness', 'Provide periodic reminders and guidance on phishing, malware, and passwords', 'Document that training occurred and refresh it regularly'],
+    penalties: null,
+    appliesTo: ['covered-entities', 'business-associates', 'workforce'],
+    topics: ['workforce training', 'security awareness', 'administrative safeguards', 'phishing', 'human factor'],
+    posterAngles: ['Most health-data breaches start with an untrained click', 'Security training turns rules into daily habits — take it seriously', 'Recognising a phishing email is a HIPAA safeguard in action']
+  },
+  {
+    id: 'hipaa-security-access-management',
+    framework: 'HIPAA',
+    citation: 'HIPAA Security Rule §164.308(a)(3) / (a)(4)',
+    level: 0,
+    region: 'US',
+    title: 'Administrative Safeguards — Access Management',
+    summary: 'Organisations must control who can access ePHI, granting access based on role and revoking it when it is no longer needed.',
+    text: 'Workforce security and information-access management safeguards require authorising and supervising staff who work with ePHI, implementing procedures to grant access appropriate to a person\'s role, and — critically — terminating access promptly when employment ends or a role changes. This enforces least privilege and closes the "orphaned account" gap that attackers and departing insiders exploit.',
+    obligations: ['Grant ePHI access based on role, following least privilege', 'Revoke access immediately when staff leave or change roles', 'Authorise and periodically review who can reach ePHI'],
+    penalties: null,
+    appliesTo: ['covered-entities', 'business-associates'],
+    topics: ['access management', 'least privilege', 'administrative safeguards', 'deprovisioning', 'authorization'],
+    posterAngles: ['When someone leaves, kill their access to health data that day', 'Access should match the job — no more, no less', 'Orphaned accounts are open doors; close them fast']
+  },
+  {
+    id: 'hipaa-security-contingency-plan',
+    framework: 'HIPAA',
+    citation: 'HIPAA Security Rule §164.308(a)(7)',
+    level: 0,
+    region: 'US',
+    title: 'Administrative Safeguards — Contingency Plan',
+    summary: 'Organisations must plan for emergencies with data backup, disaster recovery, and emergency-mode operation procedures for ePHI.',
+    text: 'The contingency plan safeguard requires policies and procedures to respond to emergencies or failures that damage systems containing ePHI. It includes a data backup plan, a disaster recovery plan, and an emergency-mode operation plan to keep critical processes running, plus testing and revision procedures and an analysis of which applications and data are critical. Ransomware and outages make this safeguard directly relevant to keeping patient care running.',
+    obligations: ['Maintain tested data backups of ePHI', 'Keep disaster recovery and emergency-mode operation plans', 'Periodically test and revise the contingency plan'],
+    penalties: null,
+    appliesTo: ['covered-entities', 'business-associates'],
+    topics: ['contingency plan', 'backup', 'disaster recovery', 'ransomware', 'availability', 'administrative safeguards'],
+    posterAngles: ['A tested backup is your best answer to ransomware', 'Plan for the outage before it hits — patient care depends on it', 'Backups you never test are backups you cannot trust']
+  },
+
+  // ─────────────────── Security Rule — physical ───────────────────
+  {
+    id: 'hipaa-security-facility-access',
+    framework: 'HIPAA',
+    citation: 'HIPAA Security Rule §164.310(a)',
+    level: 0,
+    region: 'US',
+    title: 'Physical Safeguards — Facility Access Controls',
+    summary: 'Organisations must limit physical access to facilities and systems that house ePHI while allowing authorised access.',
+    text: 'Facility access controls require policies to limit physical access to electronic information systems and the facilities that house them, while ensuring properly authorised access is allowed. This covers contingency operations, a facility security plan, access control and validation procedures (badges, escorts, visitor logs), and maintenance records. It stops tailgating, unescorted visitors, and physical theft of servers or devices holding ePHI.',
+    obligations: ['Restrict physical entry to areas holding ePHI systems', 'Use badges, visitor logs, and escorts to validate access', 'Prevent tailgating and challenge unescorted visitors'],
+    penalties: null,
+    appliesTo: ['covered-entities', 'business-associates', 'workforce'],
+    topics: ['facility access', 'physical safeguards', 'tailgating', 'visitor control', 'physical security'],
+    posterAngles: ['Hold the door — do not let strangers tailgate into secure areas', 'A badge on every visitor keeps health-data areas secure', 'Physical access to servers is access to the patient data on them']
+  },
+  {
+    id: 'hipaa-security-workstation-device',
+    framework: 'HIPAA',
+    citation: 'HIPAA Security Rule §164.310(b) / (c)',
+    level: 0,
+    region: 'US',
+    title: 'Physical Safeguards — Workstation & Device Security',
+    summary: 'Organisations must secure workstations and control the physical safeguards around devices that access ePHI.',
+    text: 'Workstation use and security safeguards require specifying the proper functions and physical surroundings of workstations that access ePHI and restricting access to authorised users. Practically this means positioning screens away from public view, locking or logging off unattended workstations, and physically securing laptops and portable devices. An unlocked, unattended workstation is one of the easiest ways PHI is exposed.',
+    obligations: ['Lock or log off workstations when leaving them unattended', 'Position screens so PHI is not visible to passers-by', 'Physically secure laptops and portable devices that access ePHI'],
+    penalties: null,
+    appliesTo: ['covered-entities', 'business-associates', 'workforce'],
+    topics: ['workstation security', 'device security', 'physical safeguards', 'screen lock', 'laptop security'],
+    posterAngles: ['Lock your screen every time you step away — even for a minute', 'Turn the monitor away from the waiting-room view', 'An unattended, unlocked workstation is an open patient record']
+  },
+  {
+    id: 'hipaa-security-media-disposal',
+    framework: 'HIPAA',
+    citation: 'HIPAA Security Rule §164.310(d)',
+    level: 0,
+    region: 'US',
+    title: 'Physical Safeguards — Device & Media Disposal',
+    summary: 'Organisations must securely dispose of and reuse hardware and media so ePHI cannot be recovered.',
+    text: 'The device and media controls safeguard governs the receipt, removal, and movement of hardware and electronic media containing ePHI. It requires secure disposal — such as shredding drives or cryptographic erasure — and media re-use procedures that remove ePHI before hardware is redeployed, plus accountability tracking of hardware movement and, where appropriate, a backup before moving equipment. Simply deleting files or dropping a drive in the trash is not compliant disposal.',
+    obligations: ['Securely wipe or destroy media before disposal or reuse', 'Track the movement and receipt of hardware holding ePHI', 'Never discard drives or paper PHI in ordinary trash'],
+    penalties: null,
+    appliesTo: ['covered-entities', 'business-associates', 'workforce'],
+    topics: ['media disposal', 'sanitization', 'physical safeguards', 'secure destruction', 'device reuse'],
+    posterAngles: ['Deleting a file is not wiping a drive — destroy media properly', 'Old hard drives full of PHI cannot go in the trash', 'Shred paper records; sanitize devices before they leave']
+  },
+
+  // ─────────────────── Security Rule — technical ───────────────────
+  {
+    id: 'hipaa-security-access-control',
+    framework: 'HIPAA',
+    citation: 'HIPAA Security Rule §164.312(a)',
+    level: 0,
+    region: 'US',
+    title: 'Technical Safeguards — Access Control',
+    summary: 'Systems holding ePHI must enforce technical access controls such as unique user IDs, automatic logoff, and emergency access.',
+    text: 'The access control technical safeguard requires technical policies that allow only authorised persons or software to access ePHI. Its components include a unique user identifier for each person (so activity is attributable), an emergency access procedure, automatic logoff after inactivity, and — as addressable measures — encryption and decryption. Unique IDs and automatic logoff are what make audit trails meaningful and stop shared or lingering sessions.',
+    obligations: ['Assign a unique user ID to every person accessing ePHI', 'Enable automatic logoff on systems that access ePHI', 'Maintain an emergency access procedure for critical situations'],
+    penalties: null,
+    appliesTo: ['covered-entities', 'business-associates'],
+    topics: ['access control', 'technical safeguards', 'unique user ID', 'automatic logoff', 'authentication'],
+    posterAngles: ['Never share log-ins — your unique ID makes you accountable', 'Automatic logoff protects records when you forget to lock up', 'Your username is your signature on every record you open']
+  },
+  {
+    id: 'hipaa-security-audit-controls',
+    framework: 'HIPAA',
+    citation: 'HIPAA Security Rule §164.312(b)',
+    level: 0,
+    region: 'US',
+    title: 'Technical Safeguards — Audit Controls',
+    summary: 'Systems must record and examine activity in systems that contain or use ePHI.',
+    text: 'The audit controls safeguard requires hardware, software, or procedural mechanisms that record and examine activity in information systems that contain or use ePHI. Audit logs capture who accessed what and when, enabling detection of inappropriate access (such as employees snooping on a celebrity or family member\'s records), supporting investigations, and demonstrating compliance. Logs must be protected from tampering and actually reviewed, not merely collected.',
+    obligations: ['Log access to and activity involving ePHI systems', 'Review audit logs to detect inappropriate access', 'Protect logs from alteration and retain them appropriately'],
+    penalties: null,
+    appliesTo: ['covered-entities', 'business-associates'],
+    topics: ['audit controls', 'audit logs', 'technical safeguards', 'monitoring', 'snooping detection'],
+    posterAngles: ['Every record you open is logged — snooping gets caught', 'Audit logs turn suspicion into proof; assume you are being watched', 'Curiosity is not a treatment purpose — the logs know the difference']
+  },
+  {
+    id: 'hipaa-security-integrity',
+    framework: 'HIPAA',
+    citation: 'HIPAA Security Rule §164.312(c)',
+    level: 0,
+    region: 'US',
+    title: 'Technical Safeguards — Integrity',
+    summary: 'Organisations must protect ePHI from improper alteration or destruction.',
+    text: 'The integrity safeguard requires policies and mechanisms to ensure ePHI is not improperly altered or destroyed, and to authenticate that it has not been changed in an unauthorised manner. Mechanisms such as checksums, hashing, digital signatures, and version controls help detect tampering or corruption. Data integrity matters clinically: an altered lab value or medication record can directly harm a patient.',
+    obligations: ['Protect ePHI from improper alteration or destruction', 'Use mechanisms to detect unauthorised changes to ePHI', 'Verify data integrity where corruption could affect care'],
+    penalties: null,
+    appliesTo: ['covered-entities', 'business-associates'],
+    topics: ['integrity', 'technical safeguards', 'tampering', 'data accuracy', 'authentication'],
+    posterAngles: ['A silently altered record can mean the wrong treatment', 'Integrity controls catch tampering before it reaches a patient', 'Trustworthy data is safe data — guard it from unauthorised change']
+  },
+  {
+    id: 'hipaa-security-transmission',
+    framework: 'HIPAA',
+    citation: 'HIPAA Security Rule §164.312(e)',
+    level: 0,
+    region: 'US',
+    title: 'Technical Safeguards — Transmission Security & Encryption',
+    summary: 'ePHI transmitted over networks must be protected against interception, with encryption addressed as a safeguard.',
+    text: 'The transmission security safeguard requires technical measures to guard against unauthorised access to ePHI transmitted over an electronic network. It includes integrity controls to ensure data is not improperly modified in transit and encryption as an addressable specification that should be implemented wherever reasonable. In practice this means using encrypted email, secure portals, VPNs, and TLS rather than sending PHI in plain text — and encrypted PHI that is lost is generally not a reportable breach.',
+    obligations: ['Encrypt ePHI in transit over open networks wherever reasonable', 'Use secure channels — portals, TLS, VPN — instead of plain-text email', 'Apply integrity controls to prevent modification of PHI in transit'],
+    penalties: null,
+    appliesTo: ['covered-entities', 'business-associates', 'workforce'],
+    topics: ['transmission security', 'encryption', 'technical safeguards', 'TLS', 'secure email', 'in transit'],
+    posterAngles: ['Never email patient data in plain text — use the secure channel', 'Encrypted PHI that is lost usually is not even a breach', 'Encryption in transit is the seatbelt for health data']
+  },
+
+  // ─────────────────── Breach Notification Rule ───────────────────
+  {
+    id: 'hipaa-breach-definition',
+    framework: 'HIPAA',
+    citation: 'HIPAA Breach Notification Rule §164.402',
+    level: 0,
+    region: 'US',
+    title: 'Breach Definition & Risk Assessment',
+    summary: 'A breach is an impermissible use or disclosure of unsecured PHI, presumed reportable unless a low-probability-of-compromise assessment shows otherwise.',
+    text: 'Under the Breach Notification Rule, a breach is the acquisition, access, use, or disclosure of unsecured (unencrypted) PHI in a manner not permitted by the Privacy Rule. Such an event is presumed to be a breach unless the organisation demonstrates a low probability that PHI was compromised, based on a four-factor risk assessment: the nature and extent of the PHI, who received or accessed it, whether the PHI was actually acquired or viewed, and the extent to which risk has been mitigated. Encrypted PHI is generally exempt.',
+    obligations: ['Treat any impermissible use or disclosure of unsecured PHI as a presumed breach', 'Perform the four-factor risk assessment before concluding no notification is needed', 'Document the assessment and its conclusion'],
+    penalties: null,
+    appliesTo: ['covered-entities', 'business-associates', 'workforce'],
+    topics: ['breach definition', 'breach notification', 'risk assessment', 'unsecured PHI', 'four-factor'],
+    posterAngles: ['A misdirected fax or email of PHI is a presumed breach', 'Report suspected exposures — do not decide "no harm" on your own', 'Encryption can turn a breach into a non-event; plain text cannot']
+  },
+  {
+    id: 'hipaa-breach-notification-thresholds',
+    framework: 'HIPAA',
+    citation: 'HIPAA Breach Notification Rule §164.404–§164.408',
+    level: 0,
+    region: 'US',
+    title: 'Breach Notification Thresholds & Timelines',
+    summary: 'Breaches require notifying affected individuals and HHS without unreasonable delay; large breaches also require media and prompt HHS notice.',
+    text: 'Covered entities must notify affected individuals of a breach of unsecured PHI without unreasonable delay and no later than 60 days after discovery. If a breach affects 500 or more residents of a state or jurisdiction, the entity must also notify prominent media outlets in that area and notify HHS contemporaneously (within 60 days). Breaches affecting fewer than 500 individuals are logged and reported to HHS annually. Business associates must notify the covered entity of breaches they discover, typically within 60 days.',
+    obligations: ['Notify affected individuals within 60 days of discovering a breach', 'For breaches of 500+, notify media and HHS within 60 days', 'Log smaller breaches and report them to HHS annually'],
+    penalties: null,
+    appliesTo: ['covered-entities', 'business-associates'],
+    topics: ['breach notification', 'timelines', 'HHS notification', 'media notification', '500 threshold', 'reporting'],
+    posterAngles: ['The 60-day clock starts the moment a breach is discovered', 'Big breaches hit the news — 500+ means media and HHS notice', 'The faster you report internally, the faster the clock can be met']
+  },
+
+  // ─────────────────── Covered entities, BAs, and BAAs ───────────────────
+  {
+    id: 'hipaa-covered-entities-vs-ba',
+    framework: 'HIPAA',
+    citation: 'HIPAA §160.103',
+    level: 0,
+    region: 'US',
+    title: 'Covered Entities vs Business Associates',
+    summary: 'Covered entities are health plans, clearinghouses, and providers who bill electronically; business associates are vendors that handle PHI on their behalf.',
+    text: 'Covered entities are health plans, healthcare clearinghouses, and healthcare providers that transmit health information electronically in connection with covered transactions. Business associates are persons or organisations that create, receive, maintain, or transmit PHI to perform functions for a covered entity — billing companies, cloud hosts, IT vendors, and the like. Since HITECH, business associates are directly liable under the Security Rule and much of the Privacy Rule, not merely by contract.',
+    obligations: ['Determine whether your organisation is a covered entity or business associate', 'Recognise that business associates are directly liable under HIPAA', 'Extend HIPAA obligations to subcontractors that handle PHI'],
+    penalties: null,
+    appliesTo: ['covered-entities', 'business-associates'],
+    topics: ['covered entity', 'business associate', 'scope', 'HITECH', 'applicability', 'vendors'],
+    posterAngles: ['Vendors touching patient data are directly on the hook for HIPAA', 'Know if you are the provider or the vendor — both carry duties', 'A cloud host holding PHI is a business associate, not a bystander']
+  },
+  {
+    id: 'hipaa-business-associate-agreements',
+    framework: 'HIPAA',
+    citation: 'HIPAA Privacy Rule §164.504(e)',
+    level: 0,
+    region: 'US',
+    title: 'Business Associate Agreements (BAAs)',
+    summary: 'A covered entity must have a written BAA with any vendor that handles PHI before sharing it.',
+    text: 'A business associate agreement (BAA) is the written contract that must be in place before a covered entity discloses PHI to a business associate. It requires the business associate to safeguard PHI, use and disclose it only as permitted, report breaches and security incidents, ensure subcontractors agree to the same terms, and return or destroy PHI when the relationship ends. Sharing PHI with a vendor that has no BAA — such as an unvetted app or cloud tool — is itself a HIPAA violation.',
+    obligations: ['Execute a BAA before sharing PHI with any vendor', 'Require the BAA to flow the same protections down to subcontractors', 'Never send PHI to a tool or service that has no BAA in place'],
+    penalties: null,
+    appliesTo: ['covered-entities', 'business-associates'],
+    topics: ['business associate agreement', 'BAA', 'contracts', 'vendors', 'subcontractors', 'PHI sharing'],
+    posterAngles: ['No BAA, no PHI — never share data with an uncovered vendor', 'That handy app may not have a BAA; check before you upload PHI', 'A BAA makes your vendor legally bound to protect patient data']
+  },
+
+  // ─────────────────── Enforcement ───────────────────
+  {
+    id: 'hipaa-enforcement-penalties',
+    framework: 'HIPAA',
+    citation: 'HIPAA Enforcement Rule §160.404 / 42 USC §1320d-5',
+    level: 0,
+    region: 'US',
+    title: 'Enforcement — HHS OCR & Penalty Tiers',
+    summary: 'The HHS Office for Civil Rights enforces HIPAA with tiered civil penalties based on culpability, plus possible criminal charges.',
+    text: 'HIPAA is enforced by the U.S. Department of Health and Human Services Office for Civil Rights (OCR), which investigates complaints and breaches and can impose civil money penalties. Penalties are tiered by culpability — from roughly $137 per violation for unknowing violations up to about $68,928 per violation for wilful neglect not corrected (amounts are inflation-adjusted annually), with annual caps per identical provision. Knowing wrongful disclosure of PHI can also draw criminal penalties, including fines and imprisonment, prosecuted by the Department of Justice.',
+    obligations: ['Cooperate with OCR investigations and provide requested records', 'Correct violations promptly to avoid the wilful-neglect tier', 'Recognise that individuals can face criminal liability for wrongful PHI disclosure'],
+    penalties: 'Civil penalties from roughly $137 to about $68,928 per violation (inflation-adjusted), with annual caps per provision; criminal penalties up to $250,000 and 10 years imprisonment for the most serious knowing violations.',
+    appliesTo: ['covered-entities', 'business-associates', 'workforce'],
+    topics: ['enforcement', 'OCR', 'penalties', 'civil money penalty', 'criminal penalties', 'wilful neglect'],
+    posterAngles: ['HIPAA fines scale with how careless you were — up to ~$68,928 each', 'Wilfully snooping in records can be a crime, not just a firing', 'Fix issues fast — uncorrected wilful neglect carries the top fines']
+  }
+];
+
+export default entries;
