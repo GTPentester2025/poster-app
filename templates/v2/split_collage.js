@@ -43,7 +43,9 @@ function headPanel(o, content, palette, fonts, { x, y, w, h }) {
   o.push(rect({ x, y, w, h, fill: palette.primary, layerRole: 'background' }));
   const on = pickTextColor(palette.primary);
   const innerW = w - PAD * 2;
-  const subBudget = content.subheadline ? 110 : 0;
+  // 140px sub budget + 40px gap: est-height undershoots fabric's render, so
+  // the headline's descenders were touching the subheadline (visual audit)
+  const subBudget = content.subheadline ? 140 : 0;
   const head = fitTextBlock(content.headline, {
     width: innerW, height: h - PAD * 2 - subBudget, maxSize: 116, minSize: 44, lineHeight: 1.02
   });
@@ -53,9 +55,9 @@ function headPanel(o, content, palette, fonts, { x, y, w, h }) {
     charSpacing: -10, layerRole: 'headline', bgRef: palette.primary
   }));
   if (content.subheadline) {
-    const sub = fitTextBlock(content.subheadline, { width: innerW, height: subBudget - 22, maxSize: 34, minSize: 15, lineHeight: 1.28 });
+    const sub = fitTextBlock(content.subheadline, { width: innerW, height: subBudget - 40, maxSize: 34, minSize: 15, lineHeight: 1.28 });
     o.push(textbox({
-      text: content.subheadline, x: x + PAD, y: Math.round(y + PAD + head.height + 22), w: innerW,
+      text: content.subheadline, x: x + PAD, y: Math.round(y + PAD + head.height + 40), w: innerW,
       fontSize: sub.fontSize, fontFamily: fonts.body, fontWeight: '600', fill: on,
       lineHeight: 1.28, layerRole: 'subheadline', bgRef: palette.primary
     }));

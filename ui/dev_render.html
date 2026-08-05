@@ -1,0 +1,50 @@
+<!doctype html>
+<!-- Dev-only template proof sheet: renders one template's REAL sample canvas
+     (the /api/pipeline/templates/:id/sample endpoint — exactly what the design
+     station compiles) through the same Fabric pipeline the app uses. Visual QA
+     harness for screenshot audits; not linked from any page.
+     Usage: /dev_render.html?template=qa-chat&orientation=portrait&scale=0.5 -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Template proof</title>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Bebas+Neue&family=IBM+Plex+Sans:wght@400;600;700&family=Lato:wght@400;700&family=Merriweather:wght@700;900&family=Nunito+Sans:wght@400;600;700&family=Open+Sans:wght@400;600;700&family=Oswald:wght@500;600;700&family=Playfair+Display:wght@700;800;900&family=Poppins:wght@600;700;800&family=Roboto:wght@400;500;700&family=Source+Sans+3:wght@400;600;700&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  body { margin: 0; background: #444; display: grid; place-items: start center; }
+  #stage { margin: 12px; box-shadow: 0 4px 24px rgba(0,0,0,.5); }
+  #err { color: #ff8080; font: 14px monospace; padding: 12px; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+<div id="err"></div>
+<canvas id="stage"></canvas>
+<script src="vendor/fabric.min.js"></script>
+<script>
+(async () => {
+  const q = new URLSearchParams(location.search);
+  const id = q.get('template') || 'qa-chat';
+  const orientation = q.get('orientation') === 'landscape' ? 'landscape' : 'portrait';
+  const scale = Math.max(0.1, Math.min(1, parseFloat(q.get('scale') || '0.5')));
+  try {
+    const res = await fetch(`/api/pipeline/templates/${encodeURIComponent(id)}/sample?orientation=${orientation}`);
+    if (!res.ok) throw new Error(`sample ${res.status}`);
+    const { canvas } = await res.json();
+    const el = document.getElementById('stage');
+    el.width = canvas.width * scale;
+    el.height = canvas.height * scale;
+    const fc = new fabric.StaticCanvas(el, { enableRetinaScaling: false });
+    fc.setZoom(scale);
+    await new Promise((resolve) => fc.loadFromJSON(canvas, resolve));
+    fc.renderAll();
+    // re-render once webfonts land so measurements/faces are true
+    if (document.fonts?.ready) document.fonts.ready.then(() => fc.renderAll());
+    document.title = `proof:${id}:${orientation}`;
+    window.__proofReady = true;
+  } catch (e) {
+    document.getElementById('err').textContent = String(e);
+  }
+})();
+</script>
+</body>
+</html>
