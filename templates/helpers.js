@@ -109,7 +109,10 @@ export function chip({ text, x, y, fontSize = 26, bg, color, font, msgId = null,
   const label = String(text).toUpperCase();
   const padX = Math.round(fontSize * 0.7);
   const padY = Math.round(fontSize * 0.46);
-  const rawW = Math.round(estTextWidth(label, fontSize) * 1.08) + padX * 2;
+  // width must include the rendered letter tracking (charSpacing 60 = 0.06em
+  // per character) — estTextWidth alone under-measures and clips the label
+  const trackingW = Math.round(label.length * fontSize * 0.06);
+  const rawW = Math.round(estTextWidth(label, fontSize) * 1.08) + trackingW + padX * 2;
   const w = maxW < Infinity ? Math.min(rawW, maxW) : rawW;
   const innerW = Math.max(w - padX * 2, 1);
   // If maxH budget supplied, shrink font size to fit within it
