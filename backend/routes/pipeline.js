@@ -21,6 +21,7 @@ import {
 } from '../../pipelines/content_pipeline.js';
 import { suggestForPoster, executeReroute } from '../../pipelines/reroute_pipeline.js';
 import { runAutoPipeline } from '../../pipelines/auto_pipeline.js';
+import { fillSampleSlots } from '../sample-fill.js';
 import { listTemplatesV2, getTemplateV2, buildCanvas } from '../../templates/v2/index.js';
 import { sampleContentFor } from '../../templates/v2/manifest_schema.js';
 import { recommendTemplate } from '../../agents/template_recommender.js';
@@ -80,6 +81,9 @@ export function pipelineRouter(ctx) {
       const template = getTemplateV2(templateId);
       const content = sampleContentFor(template.contentSchema);
       const canvas = buildCanvas(templateId, orientation, content);
+      // Dress the sample with real library images (default on; images=0 keeps
+      // the honest dashed placeholders). Empty library → placeholders remain.
+      if (req.query.images !== '0') fillSampleSlots(ctx.db, canvas, templateId);
       res.json({ templateId, orientation, canvas });
     } catch (err) { handle(res, next, err); }
   });
