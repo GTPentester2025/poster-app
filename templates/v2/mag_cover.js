@@ -110,7 +110,9 @@ function buildPortrait(content, palette, fonts) {
 
   const ctaH = 150;
   coverHeadline(o, content, palette, fonts, {
-    x: 96, w: 820, bottomY: H - ctaH - 44, budget: 700
+    // 90px clearance: est-height slightly undershoots fabric's render, so the
+    // final line's descenders were kissing the CTA strip (visual audit)
+    x: 96, w: 820, bottomY: H - ctaH - 90, budget: 700
   });
 
   ctaStrip(o, content.callToAction, palette, fonts, W, H - ctaH, ctaH);
@@ -133,7 +135,7 @@ function buildLandscape(content, palette, fonts) {
 
   const ctaH = 140;
   coverHeadline(o, content, palette, fonts, {
-    x: 96, w: 1020, bottomY: H - ctaH - 40, budget: 520
+    x: 96, w: 1020, bottomY: H - ctaH - 80, budget: 520
   });
 
   ctaStrip(o, content.callToAction, palette, fonts, W, H - ctaH, ctaH);

@@ -69,7 +69,10 @@ function buildPortrait(content, palette, fonts) {
   const o = canvas.objects;
 
   o.push(backgroundImageSlot({ w: W, h: H, styleHint: 'raw concrete texture, harsh monochrome grain, brutalist print feel, no text', stroke: palette.primary }));
-  o.push(...legibilityScrim({ w: W, h: H }));
+  // LIGHT scrim (paper-colored): this template reads dark-on-paper, so the
+  // wash must lighten a filled background image, not darken it — the default
+  // dark scrim turned the paper field muddy grey (visual audit 2026-08-05).
+  o.push(...legibilityScrim({ w: W, h: H, color: palette.background }));
 
   const M = 96;
   const innerW = W - M * 2;
@@ -135,7 +138,10 @@ function buildLandscape(content, palette, fonts) {
   const o = canvas.objects;
 
   o.push(backgroundImageSlot({ w: W, h: H, styleHint: 'raw concrete texture, harsh monochrome grain, brutalist print feel, no text', stroke: palette.primary }));
-  o.push(...legibilityScrim({ w: W, h: H }));
+  // LIGHT scrim (paper-colored): this template reads dark-on-paper, so the
+  // wash must lighten a filled background image, not darken it — the default
+  // dark scrim turned the paper field muddy grey (visual audit 2026-08-05).
+  o.push(...legibilityScrim({ w: W, h: H, color: palette.background }));
 
   // full-height dark column left
   const colW = 880;

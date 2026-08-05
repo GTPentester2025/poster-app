@@ -1059,7 +1059,15 @@ function renderTemplateGallery(grid, templateList, { showBadges, selectedId, onS
     card.tabIndex = 0;
     card.setAttribute('aria-pressed', String(t.id === (selectedId || null)));
     card.setAttribute('aria-label', `Template: ${t.name}`);
-    card.innerHTML = t.previewSvg;
+    // preview holder: SVG placeholder renders instantly; TemplateThumbs swaps
+    // in a REAL rendered sample (lazy, viewport-driven) for v2 templates
+    const thumbHolder = document.createElement('div');
+    thumbHolder.className = 'tpl-thumb';
+    thumbHolder.innerHTML = t.previewSvg;
+    card.appendChild(thumbHolder);
+    if (window.TemplateThumbs && t.source !== 'v1') {
+      window.TemplateThumbs.attach(thumbHolder, t.id);
+    }
     if (showBadges && t.recommended) {
       const badge = document.createElement('span');
       badge.className = 'tpl-badge';
