@@ -15,8 +15,11 @@
 //   • Yellow = palette.primary; accent = palette.accent.
 //   • Each block: a left-aligned yellow QUESTION line + a body ANSWER line in
 //     DARK_INK on a DARK_PANEL card. Both carry msgId + fieldRef per block.
-//   • Portrait: full-width stacked cards, QR slot bottom-left, CTA bar.
-//   • Landscape: two columns of cards, QR slot bottom-left, CTA bar.
+//   • Tight left-aligned headline with an accent underline.
+//   • Portrait: 2-wide DEVICE-CARD GRID (staggered column heights), QR slot
+//     centred above the CTA bar.
+//   • Landscape: a single 1-row × N-column strip of cards under the headline,
+//     QR slot top-right beside the headline, CTA bar.
 
 import {
   textbox, rect, imageSlot, backgroundImageSlot,
@@ -54,7 +57,8 @@ function ctaBar(o, text, palette, fonts, W, y, h = 148) {
 }
 
 /**
- * Headline zone. Returns y cursor after all text.
+ * Headline zone — tight, left-aligned, with an accent underline bar between
+ * headline and subheadline. Returns y cursor after all text.
  */
 function headlineZone(o, content, palette, fonts, { x, y, w, maxSize }) {
   const { fontSize: headSize, height: headH } = fitTextBlock(content.headline, {
@@ -65,7 +69,14 @@ function headlineZone(o, content, palette, fonts, { x, y, w, maxSize }) {
     fontFamily: fonts.head, fontWeight: '900', fill: palette.primary,
     lineHeight: 1.0, layerRole: 'headline', bgRef: DARK_BASE
   }));
-  let cursor = y + headH + 20;
+  let cursor = y + headH + 14;
+
+  // accent underline anchoring the left-aligned headline
+  o.push(rect({
+    x, y: cursor, w: 260, h: 10,
+    fill: palette.accent || palette.primary, rx: 5, layerRole: 'decor'
+  }));
+  cursor += 26;
 
   if (content.subheadline) {
     const { fontSize: subSize, height: subH } = fitTextBlock(content.subheadline, {
@@ -179,27 +190,39 @@ function buildPortrait(content, palette, fonts) {
   o.push(...signalArcs({ x: W, y: 0, r: 480, rings: 4, color: palette.primary, strokeWidth: 10, intensity: 0.75 }));
   o.push(...dotGrid({ x: 80, y: 1100, cols: 4, rows: 4, gap: 56, dotR: 4, color: palette.primary, intensity: 0.45 }));
 
-  // 3. Headline zone
+  // 3. Headline zone — tightened, left-aligned, accent underline
   const zoneW = W - PAD * 2;
   let cursor = headlineZone(o, content, palette, fonts, {
-    x: PAD, y: 96, w: zoneW, maxSize: 128
+    x: PAD, y: 96, w: zoneW, maxSize: 112
   });
-  cursor = Math.max(cursor, 380);
+  cursor = Math.max(cursor, 400);
 
-  // 4. Q&A card stack
+  // 4. Device-card grid — 2-wide, staggered column heights
   const blocks = content.blocks || [];
-  const n = Math.max(blocks.length, 1);
+  const gridTop = cursor + 24;
 
   // Reserve space: QR slot (160px) + CTA bar (148px) + gaps
   const stackBottom = H - 148 - 160 - 56;
-  const stackAvail = Math.max(n * 200, stackBottom - cursor - 24);
-  const gapBetween = 20;
-  const cardBudget = Math.round((stackAvail - gapBetween * (n - 1)) / n);
+  const colGap = 28;
+  const colW = Math.floor((zoneW - colGap) / 2);
+  const STAGGER = 44; // right column starts lower for a staggered grid rhythm
+  const gapBetween = 24;
 
-  blocks.forEach((b, i) => {
-    const cardY = cursor + i * (cardBudget + gapBetween);
-    qaCard(o, b, palette, fonts, {
-      x: PAD, y: cardY, w: zoneW, budgetH: cardBudget - 8
+  const cols = [[], []];
+  blocks.forEach((b, i) => cols[i % 2].push(b));
+
+  cols.forEach((colBlocks, ci) => {
+    if (!colBlocks.length) return;
+    const colX = PAD + ci * (colW + colGap);
+    let colCursor = gridTop + ci * STAGGER;
+    const m = colBlocks.length;
+    const avail = stackBottom - colCursor - 12;
+    const cardBudget = Math.round((avail - gapBetween * (m - 1)) / m);
+    colBlocks.forEach((b) => {
+      const bottom = qaCard(o, b, palette, fonts, {
+        x: colX, y: colCursor, w: colW, budgetH: cardBudget
+      });
+      colCursor = bottom + gapBetween;
     });
   });
 
@@ -242,54 +265,37 @@ function buildLandscape(content, palette, fonts) {
   o.push(...signalArcs({ x: W, y: 0, r: 440, rings: 4, color: palette.primary, strokeWidth: 10, intensity: 0.75 }));
   o.push(...dotGrid({ x: 60, y: 900, cols: 4, rows: 3, gap: 52, dotR: 4, color: palette.primary, intensity: 0.45 }));
 
-  // 3. Headline zone — full width at top
+  // 3. QR imageSlot — top-right beside the headline
   const zoneW = W - PAD_L * 2;
-  let cursor = headlineZone(o, content, palette, fonts, {
-    x: PAD_L, y: 72, w: zoneW, maxSize: 108
-  });
-  cursor = Math.max(cursor, 280);
-
-  // 4. Two-column Q&A cards
-  const blocks = content.blocks || [];
-  const n = Math.max(blocks.length, 1);
-  const leftCount = Math.ceil(n / 2);
-
-  // Reserve: CTA bar 128px + QR row 140px + gap
-  const cardsBottom = H - 128 - 148 - 16;
-  const colGap = 40;
-  const colW = Math.round((zoneW - colGap) / 2);
-
-  const colBlocks = [
-    blocks.slice(0, leftCount),
-    blocks.slice(leftCount)
-  ];
-
-  colBlocks.forEach((col, ci) => {
-    if (!col.length) return;
-    const colX = PAD_L + ci * (colW + colGap);
-    const colH = cardsBottom - cursor - 16;
-    const m = Math.max(col.length, 1);
-    const gapBetween = 16;
-    const cardBudget = Math.round((colH - gapBetween * (m - 1)) / m);
-
-    col.forEach((b, i) => {
-      const cardY = cursor + 16 + i * (cardBudget + gapBetween);
-      qaCard(o, b, palette, fonts, {
-        x: colX, y: cardY, w: colW, budgetH: cardBudget - 8
-      });
-    });
-  });
-
-  // 5. QR imageSlot — bottom-left (mimics source layout), above CTA bar
-  const qrY = H - 128 - 140 - 8;
-  const qrSize = 120;
+  const qrSize = 132;
   o.push(imageSlot({
     slotId: 'slot-qr',
-    x: PAD_L, y: qrY,
+    x: W - PAD_L - qrSize, y: 72,
     w: qrSize, h: qrSize,
     styleHint: 'QR code linking to IoT security resource or cybersecurity portal',
     stroke: palette.primary, rx: 12
   }));
+
+  // 4. Headline zone — tight, left-aligned, clear of the QR slot
+  let cursor = headlineZone(o, content, palette, fonts, {
+    x: PAD_L, y: 72, w: zoneW - qrSize - 48, maxSize: 100
+  });
+  cursor = Math.max(cursor, 320);
+
+  // 5. Device-card strip — one row, one column per block
+  const blocks = content.blocks || [];
+  const n = Math.max(blocks.length, 1);
+  const colGap = 28;
+  const colW = Math.floor((zoneW - colGap * (n - 1)) / n);
+  const stripTop = cursor + 24;
+  const stripBottom = H - 128 - 24;
+
+  blocks.forEach((b, i) => {
+    qaCard(o, b, palette, fonts, {
+      x: PAD_L + i * (colW + colGap), y: stripTop, w: colW,
+      budgetH: stripBottom - stripTop
+    });
+  });
 
   // 6. CTA bar
   ctaBar(o, content.callToAction, palette, fonts, W, H - 128, 128);
@@ -309,22 +315,27 @@ function previewPortrait(palette) {
   const W = 1414;
   const H = 2000;
   const zoneW = W - PAD * 2;
-  const n = 4; // preview at max blocks
-  const gapBetween = 20;
-  const stackTop = 380;
-  const stackBottom = H - 148 - 160 - 56;
-  const cardBudget = Math.round((stackBottom - stackTop - gapBetween * (n - 1)) / n);
+  const colGap = 28;
+  const colW = Math.floor((zoneW - colGap) / 2);
+  const gridTop = 448;
 
   const parts = [
     pvCircle(pv(1180), pv(280), pv(380), palette.primary, { opacity: 0.07 }),
     pvCircle(pv(200), pv(1700), pv(320), palette.accent, { opacity: 0.06 }),
-    // headline
-    pvBars({ x: pv(PAD), y: pv(104), w: pv(zoneW), lines: 2, barH: 9, gap: 5, fill: palette.primary })
+    // headline — tight, left-aligned, with accent underline
+    pvBars({ x: pv(PAD), y: pv(104), w: pv(zoneW), lines: 2, barH: 9, gap: 5, fill: palette.primary }),
+    pvRect(pv(PAD), pv(344), pv(260), 1.5, palette.accent || palette.primary, { rx: 0.7 })
   ];
 
-  for (let i = 0; i < n; i++) {
-    const cardY = stackTop + i * (cardBudget + gapBetween);
-    pvCard(parts, palette, { x: PAD, y: cardY, w: zoneW, h: cardBudget });
+  // 2-wide device grid, staggered column heights
+  const colHeights = [[500, 560], [560, 470]];
+  for (let ci = 0; ci < 2; ci++) {
+    const colX = PAD + ci * (colW + colGap);
+    let y = gridTop + ci * 44;
+    for (const h of colHeights[ci]) {
+      pvCard(parts, palette, { x: colX, y, w: colW, h });
+      y += h + 24;
+    }
   }
 
   // QR slot
@@ -341,34 +352,25 @@ function previewLandscape(palette) {
   const H = 1414;
   const zoneW = W - PAD_L * 2;
   const n = 4; // max blocks preview
-  const leftCount = Math.ceil(n / 2);
-  const colGap = 40;
-  const colW = Math.round((zoneW - colGap) / 2);
-  const cardsBottom = H - 128 - 148 - 16;
-  const cursor = 280;
-  const gapBetween = 16;
+  const colGap = 28;
+  const colW = Math.floor((zoneW - colGap * (n - 1)) / n);
+  const qrSize = 132;
 
   const parts = [
     pvCircle(pv(1760), pv(200), pv(360), palette.primary, { opacity: 0.07 }),
     pvCircle(pv(240), pv(1200), pv(300), palette.accent, { opacity: 0.06 }),
-    // headline
-    pvBars({ x: pv(PAD_L), y: pv(80), w: pv(zoneW), lines: 2, barH: 8, gap: 5, fill: palette.primary })
+    // headline — tight, left-aligned, with accent underline
+    pvBars({ x: pv(PAD_L), y: pv(80), w: pv(zoneW - qrSize - 48), lines: 2, barH: 8, gap: 5, fill: palette.primary }),
+    pvRect(pv(PAD_L), pv(290), pv(260), 1.5, palette.accent || palette.primary, { rx: 0.7 }),
+    // QR slot — top-right beside the headline
+    pvSlot(pv(W - PAD_L - qrSize), pv(72), pv(qrSize), pv(qrSize), palette.primary)
   ];
 
-  for (let ci = 0; ci < 2; ci++) {
-    const colX = PAD_L + ci * (colW + colGap);
-    const colBlocks = ci === 0 ? leftCount : n - leftCount;
-    const colH = cardsBottom - cursor - 16;
-    const cardBudget = colBlocks > 0 ? Math.round((colH - gapBetween * (colBlocks - 1)) / colBlocks) : 0;
-    for (let i = 0; i < colBlocks; i++) {
-      const cardY = cursor + 16 + i * (cardBudget + gapBetween);
-      pvCard(parts, palette, { x: colX, y: cardY, w: colW, h: cardBudget });
-    }
+  // 1-row × N-column device-card strip under the headline
+  for (let i = 0; i < n; i++) {
+    pvCard(parts, palette, { x: PAD_L + i * (colW + colGap), y: 420, w: colW, h: 700 });
   }
 
-  // QR slot
-  const qrY = H - 128 - 140 - 8;
-  parts.push(pvSlot(pv(PAD_L), pv(qrY), pv(120), pv(120), palette.primary));
   // CTA bar
   parts.push(pvRect(0, pv(H - 128), PV_LAND_W, pv(128), palette.primary));
 
@@ -381,7 +383,7 @@ export default {
   id: 'iot-explainer',
   name: 'IoT Explainer',
   style: 'qa',
-  description: 'Dark Q&A explainer for IoT security: brand-yellow headline, N question→answer cards stacked in portrait / two columns in landscape, QR imageSlot CTA. Reinterprets the IoT Vulnerabilities dark poster at poster scale.',
+  description: 'Dark Q&A explainer for IoT security: tight brand-yellow headline with accent underline, question→answer device cards in a staggered 2-wide grid (portrait) or a single row of columns (landscape), QR imageSlot CTA. Reinterprets the IoT Vulnerabilities dark poster at poster scale.',
   contentSchema: {
     headline: { required: true, maxWords: 8 },
     subheadline: { required: false, maxWords: 14 },

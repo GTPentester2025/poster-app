@@ -91,7 +91,10 @@ function filledImage(slot, img) {
  */
 export function fillSampleSlots(db, canvas, templateId) {
   if (!db || !canvas || !Array.isArray(canvas.objects)) return canvas;
-  const slots = canvas.objects.filter((o) => o.layerRole === 'image-slot' && o.slotId);
+  // The full-bleed 'bg' slot stays EMPTY in template-phase samples: the user
+  // picks a template on its clean layout and adds a background later — only
+  // content slots get dressed.
+  const slots = canvas.objects.filter((o) => o.layerRole === 'image-slot' && o.slotId && o.slotId !== 'bg');
   if (!slots.length) return canvas;
   const pool = libraryPool(db);
   if (!pool.length) return canvas;

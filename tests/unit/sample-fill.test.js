@@ -30,17 +30,17 @@ function slotCanvas() {
   };
 }
 
-test('slots become cover-fit Image objects with matched library picks', () => {
+test('content slots become cover-fit Images; the bg slot stays an empty placeholder', () => {
   const db = makeDb([
     { id: 'img-usb', topics: ['usb security', 'usb', 'removable media'] },
     { id: 'img-phish', topics: ['phishing', 'email'], meta: { width: 1024, height: 1536 } }
   ]);
   const canvas = fillSampleSlots(db, slotCanvas(), 'tpl-x');
   const images = canvas.objects.filter((o) => o.type === 'Image');
-  assert.equal(images.length, 2);
+  assert.equal(images.length, 1, 'only the content slot fills — bg stays clean for later');
   const bySlot = Object.fromEntries(images.map((o) => [o.slotId, o]));
   assert.equal(bySlot['slot-1'].imageId, 'img-usb', 'usb hint matches usb image');
-  assert.equal(bySlot['bg'].imageId, 'img-phish', 'phishing hint matches phishing image');
+  assert.ok(canvas.objects.some((o) => o.layerRole === 'image-slot' && o.slotId === 'bg'), 'bg placeholder preserved');
   // cover-fit: scaled image covers the slot frame; clipPath crops to it
   const s1 = bySlot['slot-1'];
   assert.ok(s1.width * s1.scaleX >= 600 - 1 && s1.height * s1.scaleY >= 400 - 1);

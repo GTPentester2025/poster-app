@@ -4,6 +4,25 @@
 // Follow-up template builders: add your module import + one entry to
 // TEMPLATES_V2 — validateManifest gates the rest.
 
+// M1 modern family (2026 design language) — listed FIRST so the gallery leads
+// with the newest, most modern layouts. Batch A: bento/glass/type/sticker/
+// soft-brut; batch B: aurora/pill/mono/paper/outline; batch C: the org's own
+// corporate poster language (arch frames, section cards, hazard stripes,
+// keyword highlighting).
+import bentoBoard from './bento_board.js';
+import glassLayers from './glass_layers.js';
+import typeWave from './type_wave.js';
+import stickerPop from './sticker_pop.js';
+import softBrut from './soft_brut.js';
+import auroraFlow from './aurora_flow.js';
+import pillSteps from './pill_steps.js';
+import monoStack from './mono_stack.js';
+import paperDepth from './paper_depth.js';
+import outlineKit from './outline_kit.js';
+import archHero from './arch_hero.js';
+import sectionStack from './section_stack.js';
+import hazardLine from './hazard_line.js';
+import keywordDark from './keyword_dark.js';
 import timelineJourney from './timeline_journey.js';
 import qaChat from './qa_chat.js';
 import bulletBeacon from './bullet_beacon.js';
@@ -108,6 +127,21 @@ import { DEFAULT_PALETTE, DEFAULT_FONTS } from '../palette.js';
 export { ORIENTATIONS, PORTRAIT_W, PORTRAIT_H, LANDSCAPE_W, LANDSCAPE_H };
 
 const TEMPLATES_V2 = [
+  // M1 modern family first — gallery order = this array's order
+  bentoBoard,
+  glassLayers,
+  typeWave,
+  stickerPop,
+  softBrut,
+  auroraFlow,
+  pillSteps,
+  monoStack,
+  paperDepth,
+  outlineKit,
+  archHero,
+  sectionStack,
+  hazardLine,
+  keywordDark,
   timelineJourney,
   qaChat,
   bulletBeacon,

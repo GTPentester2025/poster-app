@@ -1,15 +1,15 @@
-// v2 template — security-calendar (style: infographic). Monthly security awareness
-// calendar displayed as a clean 4-week grid with day cells. Awareness events are
-// highlighted as colored badges placed in their corresponding day cells. Each event
-// carries a label + descriptive text. Clean white canvas with soft dot-grid texture
-// and subtle color accents.
-// Portrait: headline top, calendar grid below, CTA at bottom.
-// Landscape: headline top-left, larger calendar grid, CTA bottom-right.
+// v2 template — security-calendar (style: infographic). Monthly security
+// awareness calendar: a clean 4-week grid with day cells and colored event
+// badges, plus an event agenda list below the grid — each event's label chip
+// and description get a full agenda row, so the block text is visible and the
+// canvas fills edge to edge (SP-B layout-tightening pass). Clean white canvas
+// with soft dot-grid texture. Portrait: headline, grid, agenda rows, CTA bar.
+// Landscape: REAL relayout — headline + agenda left, grid right.
 
 import {
-  textbox, rect, circle, backgroundImageSlot,
-  fitFontSize, estTextHeight,
-  pv, pvRect, pvCircle, pvBars
+  textbox, rect, chip, backgroundImageSlot,
+  fitTextBlock, fitFontSize, estTextHeight,
+  pv, pvRect, pvBars
 } from '../helpers.js';
 import {
   makeCanvasV2, canvasDims, gradientWash, dotGrid, legibilityScrim, svgWrapO
@@ -23,7 +23,7 @@ const GRID_LINE = '#E2E8F0';        // light gray grid lines
 const ACCENT_PRIMARY = '#3B82F6';   // bright blue
 const EVENT_COLORS = ['#F97316', '#EC4899', '#8B5CF6', '#06B6D4', '#10B981', '#EAB308']; // warm palette
 
-// ── shared background: white + subtle gradient wash + dot-grid texture ───────────
+// ── shared background: white + subtle gradient wash + dot-grid texture ───────
 function backdrop(o, palette, W, H) {
   o.push(...gradientWash({ w: W, h: H, from: palette.primary, to: CANVAS, direction: 'diagonal', intensity: 0.08 }));
   o.push(...dotGrid({
@@ -33,27 +33,38 @@ function backdrop(o, palette, W, H) {
   }));
 }
 
-// ── calendar grid: draw 4 weeks × 7 days with optional event badges ─────────────
+/** Default day numbers when content omits them: spread across the month. */
+function dayFor(b, idx) {
+  const n = Number(b.dayNumber);
+  if (Number.isInteger(n) && n >= 1 && n <= 28) return n;
+  return 3 + idx * 5; // 3, 8, 13, 18, 23, 28
+}
+
+// ── calendar grid: 4 weeks × 7 days with event badges ────────────────────────
 function drawCalendarGrid(o, blocks, gridX, gridY, cellSize, fonts) {
   const cols = 7;
   const rows = 4;
   const dayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-  // Header row: day abbreviations
-  const headerH = 40;
+  const headerH = 48;
   dayLabels.forEach((day, i) => {
     o.push(textbox({
-      text: day, x: gridX + i * cellSize, y: gridY - headerH + 8,
-      w: cellSize, fontSize: 16, fontFamily: fonts.head, fontWeight: '700',
-      fill: INK, align: 'center', lineHeight: 1, layerRole: 'decor'
+      text: day.toUpperCase(), x: gridX + i * cellSize, y: gridY - headerH + 8,
+      w: cellSize, fontSize: 18, fontFamily: fonts.head, fontWeight: '700',
+      fill: INK_DIM, align: 'center', lineHeight: 1, charSpacing: 60, layerRole: 'decor'
     }));
   });
 
-  // Day cells: 4 rows × 7 cols
   const eventMap = {};
   blocks.forEach((b, idx) => {
-    eventMap[b.dayNumber] = { ...b, colorIdx: idx % EVENT_COLORS.length };
+    eventMap[dayFor(b, idx)] = { ...b, colorIdx: idx % EVENT_COLORS.length };
   });
+
+  // rounded frame around the whole grid
+  o.push(rect({
+    x: gridX - 8, y: gridY - 8, w: cols * cellSize + 16, h: rows * cellSize + 16,
+    fill: 'transparent', stroke: GRID_LINE, strokeWidth: 2, rx: 20, layerRole: 'decor'
+  }));
 
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
@@ -61,41 +72,38 @@ function drawCalendarGrid(o, blocks, gridX, gridY, cellSize, fonts) {
       const x = gridX + c * cellSize;
       const y = gridY + r * cellSize;
 
-      // Cell background
       o.push(rect({
         x, y, w: cellSize, h: cellSize,
         fill: 'transparent', stroke: GRID_LINE, strokeWidth: 2,
         layerRole: 'decor'
       }));
 
-      // Day number (top-left corner)
       o.push(textbox({
-        text: String(dayNum), x: x + 8, y: y + 6,
-        w: cellSize - 16, fontSize: 18, fontFamily: fonts.head, fontWeight: '700',
-        fill: INK, align: 'left', lineHeight: 1
+        text: String(dayNum), x: x + 12, y: y + 10,
+        w: cellSize - 24, fontSize: 22, fontFamily: fonts.head, fontWeight: '700',
+        fill: INK, align: 'left', lineHeight: 1, layerRole: 'decor'
       }));
 
-      // Event badge (if present for this day)
       if (eventMap[dayNum]) {
         const evt = eventMap[dayNum];
-        const badgeW = cellSize - 16;
-        const badgeH = 22;
-        const badgeY = y + cellSize - badgeH - 6;
-        const badgeX = x + 8;
         const badgeColor = EVENT_COLORS[evt.colorIdx];
-
+        // tinted cell wash marks the event day
+        o.push(rect({ x: x + 2, y: y + 2, w: cellSize - 4, h: cellSize - 4, fill: badgeColor, opacity: 0.12, layerRole: 'decor' }));
+        const badgeW = cellSize - 20;
+        const badgeH = 34;
+        const badgeY = y + cellSize - badgeH - 10;
+        const badgeX = x + 10;
         o.push(rect({
           x: badgeX, y: badgeY, w: badgeW, h: badgeH,
-          fill: badgeColor, opacity: 0.9, rx: 4, layerRole: 'decor'
+          fill: badgeColor, opacity: 0.95, rx: 10, layerRole: 'decor'
         }));
-
-        const labelSize = Math.max(10, Math.round(badgeH * 0.5));
+        const labelSize = fitFontSize(evt.label, { width: badgeW - 16, height: badgeH - 10, maxSize: 18, minSize: 10, lineHeight: 1.05 });
         o.push({
           ...textbox({
-            text: evt.label, x: badgeX + 6, y: badgeY + 2,
-            w: badgeW - 12, fontSize: labelSize,
-            fontFamily: fonts.body, fontWeight: '600',
-            fill: '#FFFFFF', align: 'left', lineHeight: 1,
+            text: evt.label, x: badgeX + 8, y: badgeY + Math.round((badgeH - estTextHeight(evt.label, labelSize, badgeW - 16, 1.05)) / 2),
+            w: badgeW - 16, fontSize: labelSize,
+            fontFamily: fonts.body, fontWeight: '700',
+            fill: '#FFFFFF', align: 'center', lineHeight: 1.05,
             layerRole: 'message', msgId: evt.id, bgRef: badgeColor
           }),
           fieldRef: 'label'
@@ -103,15 +111,68 @@ function drawCalendarGrid(o, blocks, gridX, gridY, cellSize, fonts) {
       }
     }
   }
+  return { bottom: gridY + rows * cellSize };
 }
 
-// ── CTA zone ───────────────────────────────────────────────────────────────────
-function ctaZone(o, text, fonts, { x, y, w }) {
-  o.push(rect({ x, y: y - 12, w, h: 3, fill: ACCENT_PRIMARY, layerRole: 'decor' }));
-  const size = fitFontSize(text, { width: w, height: 80, maxSize: 42, minSize: 24 });
+// ── agenda rows: one card row per event (chip + description) ─────────────────
+function agendaRows(o, blocks, fonts, { x, y, w, h }) {
+  const n = Math.max(blocks.length, 1);
+  const gap = 18;
+  const rowH = Math.floor((h - gap * (n - 1)) / n);
+  blocks.forEach((b, idx) => {
+    const rowY = y + idx * (rowH + gap);
+    const color = EVENT_COLORS[idx % EVENT_COLORS.length];
+    // row card
+    o.push(rect({ x, y: rowY, w, h: rowH, fill: CANVAS, rx: 20, stroke: GRID_LINE, strokeWidth: 2, layerRole: 'background', msgId: b.id }));
+    o.push(rect({ x, y: rowY + 12, w: 8, h: rowH - 24, fill: color, rx: 4, layerRole: 'decor' }));
+
+    // day badge
+    const day = dayFor(b, idx);
+    o.push(rect({ x: x + 32, y: rowY + Math.round(rowH / 2) - 34, w: 68, h: 68, fill: color, opacity: 0.14, rx: 18, layerRole: 'decor' }));
+    o.push(textbox({
+      text: String(day), x: x + 32, y: rowY + Math.round(rowH / 2) - 16,
+      w: 68, fontSize: 30, fontFamily: fonts.head, fontWeight: '800',
+      fill: INK, align: 'center', lineHeight: 1, layerRole: 'decor'
+    }));
+
+    // label chip + description text, vertically centered as a group
+    const textX = x + 128;
+    const textW = w - 128 - 32;
+    const labelFit = fitTextBlock(String(b.label).toUpperCase(), { width: textW, height: 40, maxSize: 26, minSize: 14, lineHeight: 1.1 });
+    const bodyFit = fitTextBlock(b.text, {
+      width: textW, height: Math.max(36, rowH - labelFit.height - 52), maxSize: 30, minSize: 14, lineHeight: 1.3
+    });
+    const groupH = labelFit.height + 10 + bodyFit.height;
+    let cy = rowY + Math.round((rowH - groupH) / 2);
+    o.push({
+      ...textbox({
+        text: String(b.label).toUpperCase(), x: textX, y: cy, w: textW, fontSize: labelFit.fontSize,
+        fontFamily: fonts.head, fontWeight: '800', fill: color, charSpacing: 60,
+        lineHeight: 1.1, layerRole: 'message-label', msgId: b.id, bgRef: CANVAS
+      }),
+      fieldRef: 'label'
+    });
+    cy += labelFit.height + 10;
+    o.push({
+      ...textbox({
+        text: b.text, x: textX, y: cy, w: textW, fontSize: bodyFit.fontSize,
+        fontFamily: fonts.body, fontWeight: '500', fill: INK_DIM,
+        lineHeight: 1.3, layerRole: 'message', msgId: b.id, bgRef: CANVAS
+      }),
+      fieldRef: 'text'
+    });
+  });
+}
+
+// ── CTA bar (pinned bottom) ──────────────────────────────────────────────────
+function ctaBar(o, text, fonts, { W, y, h }) {
+  o.push(rect({ x: 0, y, w: W, h, fill: INK, layerRole: 'background' }));
+  o.push(rect({ x: 0, y, w: W, h: 4, fill: ACCENT_PRIMARY, layerRole: 'decor' }));
+  const cta = fitTextBlock(text, { width: W - 200, height: h - 40, maxSize: 42, minSize: 22, lineHeight: 1.2 });
   o.push(textbox({
-    text, x, y, w, fontSize: size, fontFamily: fonts.head, fontWeight: '800',
-    fill: INK, align: 'left', layerRole: 'cta', bgRef: CANVAS
+    text, x: 100, y: y + Math.round((h - cta.height) / 2), w: W - 200,
+    fontSize: cta.fontSize, fontFamily: fonts.head, fontWeight: '800',
+    fill: '#FFFFFF', align: 'center', lineHeight: 1.2, layerRole: 'cta', bgRef: INK
   }));
 }
 
@@ -125,42 +186,40 @@ function buildPortrait(content, palette, fonts) {
   o.push(...legibilityScrim({ w: W, h: H, color: CANVAS, strength: 0.9 }));
   backdrop(o, palette, W, H);
 
-  const margin = 60;
+  const margin = 70;
   const innerW = W - margin * 2;
 
-  const headSize = fitFontSize(content.headline, { width: innerW, height: 200, maxSize: 80, minSize: 36 });
-  const headH = estTextHeight(content.headline, headSize, innerW, 1.08);
+  const head = fitTextBlock(content.headline, { width: innerW, height: 230, maxSize: 96, minSize: 40, lineHeight: 1.06 });
   o.push(textbox({
-    text: content.headline, x: margin, y: 80, w: innerW, fontSize: headSize,
+    text: content.headline, x: margin, y: 78, w: innerW, fontSize: head.fontSize,
     fontFamily: fonts.head, fontWeight: '900', fill: INK, align: 'left',
-    lineHeight: 1.08, layerRole: 'headline', bgRef: CANVAS
+    lineHeight: 1.06, layerRole: 'headline', bgRef: CANVAS
   }));
-  let cursor = 80 + headH + 24;
+  let cursor = 78 + head.height + 18;
 
   if (content.subheadline) {
-    const subSize = fitFontSize(content.subheadline, { width: innerW, height: 60, maxSize: 28, minSize: 14 });
-    const subH = estTextHeight(content.subheadline, subSize, innerW, 1.2);
+    const sub = fitTextBlock(content.subheadline, { width: innerW, height: 80, maxSize: 32, minSize: 16, lineHeight: 1.25 });
     o.push(textbox({
-      text: content.subheadline, x: margin, y: cursor, w: innerW, fontSize: subSize,
+      text: content.subheadline, x: margin, y: cursor, w: innerW, fontSize: sub.fontSize,
       fontFamily: fonts.body, fontWeight: '500', fill: INK_DIM,
-      lineHeight: 1.2, layerRole: 'subheadline', bgRef: CANVAS
+      lineHeight: 1.25, layerRole: 'subheadline', bgRef: CANVAS
     }));
-    cursor += subH + 20;
+    cursor += sub.height + 16;
   }
-
-  const ctaY = H - 110;
-  const gridTop = cursor + 20;
-  const gridBottom = ctaY - 40;
-  const gridH = gridBottom - gridTop;
-  // cell size is capped by BOTH the vertical budget (4 rows) and the
-  // horizontal budget (7 columns inside innerW) so the grid never runs
-  // off the right edge of the canvas
-  const cellSize = Math.min(Math.floor(gridH / 4), Math.floor(innerW / 7));
+  o.push(rect({ x: margin, y: cursor + 8, w: 160, h: 8, fill: ACCENT_PRIMARY, rx: 4, layerRole: 'decor' }));
 
   const blocks = content.blocks || [];
-  drawCalendarGrid(o, blocks, margin, gridTop, cellSize, fonts);
+  const gridTop = cursor + 90; // room for the weekday header row
+  const cellSize = Math.floor(innerW / 7);
+  const grid = drawCalendarGrid(o, blocks, margin, gridTop, cellSize, fonts);
 
-  ctaZone(o, content.callToAction, fonts, { x: margin, y: ctaY, w: innerW });
+  // agenda rows fill the band between the grid and the CTA bar
+  const ctaH = 150;
+  const agendaTop = grid.bottom + 48;
+  const agendaBottom = H - ctaH - 40;
+  agendaRows(o, blocks, fonts, { x: margin, y: agendaTop, w: innerW, h: agendaBottom - agendaTop });
+
+  ctaBar(o, content.callToAction, fonts, { W, y: H - ctaH, h: ctaH });
   return canvas;
 }
 
@@ -175,124 +234,99 @@ function buildLandscape(content, palette, fonts) {
   backdrop(o, palette, W, H);
 
   const margin = 80;
-  const innerW = W - margin * 2;
-
-  const headW = Math.round(innerW * 0.55);
-  const headSize = fitFontSize(content.headline, { width: headW, height: 160, maxSize: 72, minSize: 32 });
-  const headH = estTextHeight(content.headline, headSize, headW, 1.08);
+  const leftW = 760;
+  const head = fitTextBlock(content.headline, { width: leftW, height: 220, maxSize: 84, minSize: 36, lineHeight: 1.06 });
   o.push(textbox({
-    text: content.headline, x: margin, y: 80, w: headW, fontSize: headSize,
+    text: content.headline, x: margin, y: 76, w: leftW, fontSize: head.fontSize,
     fontFamily: fonts.head, fontWeight: '900', fill: INK, align: 'left',
-    lineHeight: 1.08, layerRole: 'headline', bgRef: CANVAS
+    lineHeight: 1.06, layerRole: 'headline', bgRef: CANVAS
   }));
-  let topCursor = 80 + headH + 16;
+  let cursor = 76 + head.height + 16;
 
   if (content.subheadline) {
-    const subSize = fitFontSize(content.subheadline, { width: headW, height: 60, maxSize: 24, minSize: 14 });
-    const subH = estTextHeight(content.subheadline, subSize, headW, 1.2);
+    const sub = fitTextBlock(content.subheadline, { width: leftW, height: 80, maxSize: 28, minSize: 14, lineHeight: 1.25 });
     o.push(textbox({
-      text: content.subheadline, x: margin, y: topCursor, w: headW, fontSize: subSize,
+      text: content.subheadline, x: margin, y: cursor, w: leftW, fontSize: sub.fontSize,
       fontFamily: fonts.body, fontWeight: '500', fill: INK_DIM,
-      lineHeight: 1.2, layerRole: 'subheadline', bgRef: CANVAS
+      lineHeight: 1.25, layerRole: 'subheadline', bgRef: CANVAS
     }));
-    topCursor += subH + 16;
+    cursor += sub.height + 14;
   }
+  o.push(rect({ x: margin, y: cursor + 6, w: 140, h: 8, fill: ACCENT_PRIMARY, rx: 4, layerRole: 'decor' }));
 
-  const ctaY = H - 100;
-  const gridTop = 80;
-  const gridBottom = ctaY - 20;
-  const gridH = gridBottom - gridTop;
-  const gridX = margin + headW + 40;
-  // cap by the vertical budget AND the horizontal room right of the headline
-  const gridAvailW = W - margin - gridX;
-  const cellSize = Math.min(Math.floor(gridH / 4), Math.floor(gridAvailW / 7));
   const blocks = content.blocks || [];
+
+  // grid right
+  const gridX = margin + leftW + 60;
+  const gridAvailW = W - margin - gridX;
+  const ctaH = 130;
+  const gridTop = 140;
+  const cellSize = Math.min(Math.floor(gridAvailW / 7), Math.floor((H - ctaH - gridTop - 60) / 4));
   drawCalendarGrid(o, blocks, gridX, gridTop, cellSize, fonts);
 
-  ctaZone(o, content.callToAction, fonts, { x: margin, y: ctaY, w: headW });
+  // agenda rows fill the left column beneath the headline
+  const agendaTop = cursor + 48;
+  const agendaBottom = H - ctaH - 36;
+  agendaRows(o, blocks, fonts, { x: margin, y: agendaTop, w: leftW, h: agendaBottom - agendaTop });
+
+  ctaBar(o, content.callToAction, fonts, { W, y: H - ctaH, h: ctaH });
   return canvas;
 }
 
 // ── previews ──────────────────────────────────────────────────────────────────
-function previewPortrait() {
-  const W = 1414; const H = 2000; const margin = 60; const innerW = W - margin * 2;
-  const parts = [];
-  parts.push(pvRect(pv(margin), pv(80), pv(innerW * 0.8), pv(100), INK, { rx: 4 }));
-  parts.push(pvRect(pv(margin), pv(210), pv(innerW * 0.6), pv(20), INK_DIM, { rx: 3 }));
-
-  const gridTop = 320;
-  const cellSize = 68;
-  const cols = 7;
-  const rows = 4;
-  const dayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-
-  // Grid lines
-  for (let r = 0; r <= rows; r++) {
-    parts.push(pvRect(pv(margin), pv(gridTop + r * cellSize), pv(innerW), pv(2), GRID_LINE));
-  }
-  for (let c = 0; c <= cols; c++) {
-    parts.push(pvRect(pv(margin + c * (innerW / cols)), pv(gridTop), pv(2), pv(rows * cellSize), GRID_LINE));
-  }
-
-  // Sample badges
-  const badges = [
-    { day: 5, color: EVENT_COLORS[0] },
-    { day: 12, color: EVENT_COLORS[1] },
-    { day: 19, color: EVENT_COLORS[2] },
-    { day: 26, color: EVENT_COLORS[3] }
+function previewPortrait(palette) {
+  const margin = 70; const innerW = 1414 - margin * 2;
+  const parts = [
+    pvRect(0, 0, 200, 3, palette.primary),
+    pvRect(pv(margin), pv(78), pv(innerW * 0.85), pv(90), INK, { rx: 4 }),
+    pvRect(pv(margin), pv(196), pv(innerW * 0.6), pv(22), INK_DIM, { rx: 3 }),
+    pvRect(pv(margin), pv(258), pv(160), pv(8), ACCENT_PRIMARY, { rx: 1 })
   ];
-  badges.forEach(b => {
-    const cellIdx = b.day - 1;
-    const r = Math.floor(cellIdx / 7);
-    const c = cellIdx % 7;
-    const badgeX = margin + c * (innerW / 7) + 8;
-    const badgeY = gridTop + r * cellSize + cellSize - 28;
-    parts.push(pvRect(pv(badgeX), pv(badgeY), pv((innerW / 7) - 16), pv(20), b.color, { rx: 3 }));
+  const gridTop = 340; const cell = Math.floor(innerW / 7);
+  for (let r = 0; r <= 4; r++) parts.push(pvRect(pv(margin), pv(gridTop + r * cell), pv(cell * 7), pv(2), GRID_LINE));
+  for (let c = 0; c <= 7; c++) parts.push(pvRect(pv(margin + c * cell), pv(gridTop), pv(2), pv(4 * cell), GRID_LINE));
+  [{ d: 3 }, { d: 8 }, { d: 13 }, { d: 18 }].forEach(({ d }, i) => {
+    const idx = d - 1, r = Math.floor(idx / 7), c = idx % 7;
+    parts.push(pvRect(pv(margin + c * cell + 10), pv(gridTop + r * cell + cell - 44), pv(cell - 20), pv(34), EVENT_COLORS[i], { rx: 3 }));
   });
-
-  parts.push(pvRect(pv(margin), pv(H - 120), pv(innerW * 0.6), pv(28), ACCENT_PRIMARY, { rx: 3 }));
+  const agendaTop = gridTop + 4 * cell + 48;
+  const rowH = Math.floor((1810 - agendaTop - 54) / 4);
+  for (let i = 0; i < 4; i++) {
+    const y = agendaTop + i * (rowH + 18);
+    parts.push(pvRect(pv(margin), pv(y), pv(innerW), pv(rowH), CANVAS, { rx: 3, stroke: GRID_LINE }));
+    parts.push(pvRect(pv(margin), pv(y + 12), pv(8), pv(rowH - 24), EVENT_COLORS[i], { rx: 1 }));
+    parts.push(pvBars({ x: pv(margin + 128), y: pv(y + 24), w: pv(innerW - 200), lines: 2, barH: 5, gap: 4, fill: INK_DIM }));
+  }
+  parts.push(pvRect(0, pv(1850), 200, pv(150), INK));
+  parts.push(pvBars({ x: pv(300), y: pv(1908), w: pv(814), lines: 1, barH: 6, gap: 4, fill: '#FFFFFF', align: 'center' }));
   return svgWrapO(parts, CANVAS, 'portrait');
 }
 
-function previewLandscape() {
-  const W = 2000; const H = 1414; const margin = 80; const innerW = W - margin * 2;
-  const parts = [];
-  const headW = Math.round(innerW * 0.55);
-  parts.push(pvRect(pv(margin), pv(80), pv(headW * 0.9), pv(80), INK, { rx: 4 }));
-  parts.push(pvRect(pv(margin), pv(180), pv(headW * 0.7), pv(18), INK_DIM, { rx: 3 }));
-
-  const gridTop = 80;
-  const cellSize = 76;
-  const cols = 7;
-  const rows = 4;
-  const gridX = margin + headW + 40;
-  const gridW = innerW - headW - 40;
-
-  // Grid lines
-  for (let r = 0; r <= rows; r++) {
-    parts.push(pvRect(pv(gridX), pv(gridTop + r * cellSize), pv(gridW), pv(2), GRID_LINE));
-  }
-  for (let c = 0; c <= cols; c++) {
-    parts.push(pvRect(pv(gridX + c * (gridW / cols)), pv(gridTop), pv(2), pv(rows * cellSize), GRID_LINE));
-  }
-
-  // Sample badges
-  const badges = [
-    { day: 3, color: EVENT_COLORS[0] },
-    { day: 10, color: EVENT_COLORS[1] },
-    { day: 17, color: EVENT_COLORS[2] },
-    { day: 24, color: EVENT_COLORS[3] }
+function previewLandscape(palette) {
+  const margin = 80; const leftW = 760;
+  const parts = [
+    pvRect(0, 0, 283, 3, palette.primary),
+    pvRect(pv(margin), pv(76), pv(leftW * 0.9), pv(70), INK, { rx: 4 }),
+    pvRect(pv(margin), pv(170), pv(leftW * 0.7), pv(18), INK_DIM, { rx: 3 }),
+    pvRect(pv(margin), pv(226), pv(140), pv(8), ACCENT_PRIMARY, { rx: 1 })
   ];
-  badges.forEach(b => {
-    const cellIdx = b.day - 1;
-    const r = Math.floor(cellIdx / 7);
-    const c = cellIdx % 7;
-    const badgeX = gridX + c * (gridW / 7) + 8;
-    const badgeY = gridTop + r * cellSize + cellSize - 30;
-    parts.push(pvRect(pv(badgeX), pv(badgeY), pv((gridW / 7) - 16), pv(22), b.color, { rx: 3 }));
+  const gridX = margin + leftW + 60; const gridTop = 140;
+  const cell = Math.floor((2000 - margin - gridX) / 7);
+  for (let r = 0; r <= 4; r++) parts.push(pvRect(pv(gridX), pv(gridTop + r * cell), pv(cell * 7), pv(2), GRID_LINE));
+  for (let c = 0; c <= 7; c++) parts.push(pvRect(pv(gridX + c * cell), pv(gridTop), pv(2), pv(4 * cell), GRID_LINE));
+  [3, 8, 13, 18].forEach((d, i) => {
+    const idx = d - 1, r = Math.floor(idx / 7), c = idx % 7;
+    parts.push(pvRect(pv(gridX + c * cell + 8), pv(gridTop + r * cell + cell - 34), pv(cell - 16), pv(26), EVENT_COLORS[i], { rx: 2 }));
   });
-
-  parts.push(pvRect(pv(margin), pv(H - 110), pv(headW * 0.7), pv(26), ACCENT_PRIMARY, { rx: 3 }));
+  const agendaTop = 300; const rowH = Math.floor((1248 - agendaTop - 54) / 4);
+  for (let i = 0; i < 4; i++) {
+    const y = agendaTop + i * (rowH + 18);
+    parts.push(pvRect(pv(margin), pv(y), pv(leftW), pv(rowH), CANVAS, { rx: 3, stroke: GRID_LINE }));
+    parts.push(pvRect(pv(margin), pv(y + 10), pv(8), pv(rowH - 20), EVENT_COLORS[i], { rx: 1 }));
+    parts.push(pvBars({ x: pv(margin + 120), y: pv(y + 20), w: pv(leftW - 180), lines: 2, barH: 4, gap: 3, fill: INK_DIM }));
+  }
+  parts.push(pvRect(0, pv(1284), 283, pv(130), INK));
+  parts.push(pvBars({ x: pv(500), y: pv(1330), w: pv(1000), lines: 1, barH: 6, gap: 4, fill: '#FFFFFF', align: 'center' }));
   return svgWrapO(parts, CANVAS, 'landscape');
 }
 
@@ -300,7 +334,7 @@ export default {
   id: 'security-calendar',
   name: 'Security calendar',
   style: 'infographic',
-  description: 'A monthly security awareness calendar displayed as a clean 4-week grid with day cells. Security awareness events are highlighted as colored badges placed in their corresponding days, each carrying a label and descriptive text. Clean white canvas with subtle dot-grid texture. Portrait arranges the calendar below the headline; landscape places the calendar to the right of the headline for maximum readability.',
+  description: 'A monthly security awareness calendar displayed as a clean 4-week grid with day cells. Security awareness events are highlighted as colored badges placed in their corresponding days, and an agenda list pairs each event chip with its description. Clean white canvas with subtle dot-grid texture. Portrait stacks headline, calendar, and agenda; landscape places the agenda left and the calendar right.',
   contentSchema: {
     headline: { required: true, maxWords: 5 },
     subheadline: { required: false, maxWords: 10 },
