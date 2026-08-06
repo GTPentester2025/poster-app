@@ -756,7 +756,9 @@
       ui.ctxColorInput.title = 'Custom text color';
       ui.ctxColorInput.className = 'ctx-color-input';
       ui.ctxColorSwatches = [];
-      buildCtxSwatchButtons(PALETTE_SWATCHES);
+      // initial swatch build happens AFTER ctxColorInput is appended to
+      // ctxColorWrap below — inserting before a not-yet-attached input threw
+      // "insertBefore … not a child" and killed the whole editor build
 
       // contrast readout vs the object's bgRef (WCAG ratio + pass/fail chip)
       ui.ctxContrast = el('span', 'ctx-contrast');
@@ -794,6 +796,7 @@
       ui.ctxRegenBtn.title = 'Regenerate this text with AI';
 
       ui.ctxColorWrap.appendChild(ui.ctxColorInput);
+      buildCtxSwatchButtons(PALETTE_SWATCHES);
 
       const sep = () => el('span', 'ctx-sep');
       bar.append(
@@ -839,8 +842,10 @@
         });
         ui.ctxColorSwatches.push(sw);
       }
-      // insert before the custom color input
-      for (const sw of ui.ctxColorSwatches) ui.ctxColorWrap.insertBefore(sw, ui.ctxColorInput);
+      // insert before the custom color input (append when the input isn't
+      // attached yet — insertBefore against a non-child throws)
+      const anchor = ui.ctxColorInput.parentNode === ui.ctxColorWrap ? ui.ctxColorInput : null;
+      for (const sw of ui.ctxColorSwatches) ui.ctxColorWrap.insertBefore(sw, anchor);
     }
 
     /** Swap the context-toolbar swatches to the poster's palette + brand basics. */
