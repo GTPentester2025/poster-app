@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Config — Poster Studio</title>
 <link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/config.css">
 <!-- UI chrome fonts (base.css --font / --font-head; Segoe fallback offline) -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -52,14 +53,15 @@
     <span id="orgStatus" class="status" role="status" aria-live="polite"></span>
   </section>
 
+  <div class="config-grid">
   <section class="card">
     <h2>Brand palette override</h2>
     <p class="hint">Default palette follows AB InBev brand colors. Provide an override to use your own brand.</p>
     <div class="grid2">
-      <label>Primary color <input id="brandPrimary" type="color" value="#E3AF32"></label>
-      <label>Secondary color <input id="brandSecondary" type="color" value="#000000"></label>
-      <label>Accent color <input id="brandAccent" type="color" value="#C8102E"></label>
-      <label>Background color <input id="brandBackground" type="color" value="#F5F0E8"></label>
+      <label>Primary color <span class="color-field"><input id="brandPrimary" type="color" value="#E3AF32"><code class="hexval"></code></span></label>
+      <label>Secondary color <span class="color-field"><input id="brandSecondary" type="color" value="#000000"><code class="hexval"></code></span></label>
+      <label>Accent color <span class="color-field"><input id="brandAccent" type="color" value="#C8102E"><code class="hexval"></code></span></label>
+      <label>Background color <span class="color-field"><input id="brandBackground" type="color" value="#F5F0E8"><code class="hexval"></code></span></label>
       <label>Heading font <input id="brandFontHead" placeholder="e.g. Montserrat"></label>
       <label>Body font <input id="brandFontBody" placeholder="e.g. Inter"></label>
     </div>
@@ -128,6 +130,7 @@
     <button id="saveModels" class="primary">Save models</button>
     <span id="modelsStatus" class="status" role="status" aria-live="polite"></span>
   </section>
+  </div>
 </main>
 
 <script src="js/auth.js"></script>

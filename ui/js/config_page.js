@@ -149,6 +149,23 @@ async function load() {
     fillSelect('modelImage', modelOptions.image, models.image);
   }
   updateProviderKeyChip();
+  syncHexReadouts();
+}
+
+// Live hex chips beside the brand color swatches (.color-field .hexval —
+// presentation only; the pickers themselves are unchanged).
+function syncHexReadouts() {
+  for (const wrap of document.querySelectorAll('.color-field')) {
+    const input = wrap.querySelector('input[type=color]');
+    const chip = wrap.querySelector('.hexval');
+    if (!input || !chip) continue;
+    const sync = () => { chip.textContent = input.value.toUpperCase(); };
+    if (!input.dataset.hexWired) {
+      input.dataset.hexWired = '1';
+      input.addEventListener('input', sync);
+    }
+    sync();
+  }
 }
 
 // The 8 seeded frameworks (mirror of rag/knowledge/schema.js FRAMEWORKS).
