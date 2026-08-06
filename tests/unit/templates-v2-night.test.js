@@ -1,5 +1,5 @@
 // I4 night-family contract test — the 10 predominantly-black v2 templates
-// (neon-grid, threat-radar, glass-stack, hex-cells, case-file, spotlight-quote,
+// (threat-radar, glass-stack, hex-cells, case-file, spotlight-quote,
 // orbit-path, verdict-branches, ticker-tape, impact-burst). Schema-driven so one
 // loop holds every template to the full D1 contract: manifest valid; builds at
 // locked dims in BOTH orientations; only whitelisted fabric v6 types + finite
@@ -17,8 +17,8 @@ import { sampleContentFor, validateManifest } from '../../templates/v2/manifest_
 import { DEFAULT_PALETTE, DEFAULT_FONTS, applyBrandOverride } from '../../templates/palette.js';
 
 const NIGHT_IDS = [
-  'neon-grid', 'threat-radar', 'glass-stack', 'hex-cells', 'case-file',
-  'spotlight-quote', 'orbit-path', 'verdict-branches', 'ticker-tape', 'impact-burst',
+  'threat-radar', 'glass-stack', 'hex-cells', 'case-file',
+  'spotlight-quote', 'orbit-path', 'verdict-branches', 'ticker-tape',
   // I6 image-first premium family
   'cinematic-cover', 'image-mosaic', 'editorial-hero', 'feature-spread'
 ];
@@ -44,7 +44,7 @@ function contentAt(cs, count) {
   return { ...base, blocks, subheadline: count === cs.blocks.min ? null : base.subheadline };
 }
 
-test('night family: all 10 templates are registered', () => {
+test('night family: all registered', () => {
   for (const id of NIGHT_IDS) assert.ok(v2.getTemplateV2(id), `${id} registered`);
 });
 

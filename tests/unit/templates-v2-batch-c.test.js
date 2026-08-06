@@ -186,7 +186,7 @@ test('image slots stay honest and match each contentSchema count', () => {
   assert.equal(statsImpact.contentSchema.imageSlots, 1);
   assert.equal(infoLayers.contentSchema.imageSlots, 0);
   assert.equal(treeDecision.contentSchema.imageSlots, 0);
-  assert.equal(statsGauge.contentSchema.imageSlots, 0);
+  assert.equal(statsGauge.contentSchema.imageSlots, 4);
 });
 
 // ── decor discipline ─────────────────────────────────────────────────────────

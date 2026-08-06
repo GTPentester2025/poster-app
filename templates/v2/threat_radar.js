@@ -71,10 +71,9 @@ function headlineZone(o, content, palette, fonts, { x, y, w, maxSize, align = 'l
 function hubZone(o, palette, { cx, cy, r, slot }) {
   // soft primary bloom behind the hub
   o.push(...softGlow({ x: cx, y: cy, r: Math.round(r * 1.2), color: palette.primary, intensity: 0.7 }));
-  // signal arcs — 5 rings for premium depth (was 4)
-  o.push(...signalArcs({ x: cx, y: cy, r, rings: 5, color: palette.primary, strokeWidth: 10, intensity: 0.95 }));
+  // radar rings removed (product decision 2026-08-06) — the hub emblem and
+  // blip cards carry the layout without concentric ring decor.
   // faint accent secondary arc overlay at 70% of outer r
-  o.push(...signalArcs({ x: cx, y: cy, r: Math.round(r * 0.70), rings: 3, color: palette.accent, strokeWidth: 6, intensity: 0.55 }));
   // primary halo disc lifting the slot
   o.push(circle({ x: cx, y: cy, r: Math.round(slot * 0.64), fill: palette.primary, opacity: 0.08, layerRole: 'decor' }));
   o.push(imageSlot({
@@ -93,15 +92,7 @@ function blipCard(o, b, n, palette, fonts, { cardX, cardY, cardW, cardH, anchorX
   const nodeCx = cardX + 48;
   const nodeCy = cardY + 48;
 
-  // connector hairline hub → node
-  const dx = nodeCx - anchorX;
-  const dy = nodeCy - anchorY;
-  const len = Math.max(1, Math.round(Math.hypot(dx, dy)));
-  const angle = Math.atan2(dy, dx) * 180 / Math.PI;
-  o.push(rect({
-    x: anchorX, y: anchorY - 3, w: len, h: 6, fill: palette.primary,
-    angle, opacity: 0.14, layerRole: 'decor'
-  }));
+  // connector hairlines removed (product decision 2026-08-06)
 
   // card surface — DARK_PANEL_2 for a slightly lifted tone vs DARK_PANEL
   o.push(rect({

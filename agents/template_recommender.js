@@ -43,11 +43,11 @@ const INSTRUCTION =
 // Highest-impact first — image-first family leads, then bold data/stat and infographic layouts.
 const IMPACT_ORDER = [
   'cinematic-cover', 'photo-essay', 'editorial-hero', 'feature-spread', 'image-mosaic',
-  'split-panorama', 'impact-burst', 'aurora-glass', 'neon-grid', 'threat-radar',
+  'split-panorama', 'aurora-glass', 'threat-radar',
   'glass-stack', 'spotlight-quote', 'swiss-minimal', 'orbit-path',
   'info-command-center', 'timeline-journey', 'executive-briefing', 'board-deck-slide',
   'mag-editorial', 'case-file', 'comic-saga', 'verdict-branches',
-  'info-flow', 'stats-impact', 'stats-horizon', 'stats-gauge',
+  'info-flow', 'stats-impact', 'stats-gauge',
   'layered-briefing', 'hex-cells', 'ticker-tape',
   'bullet-beacon', 'bullet-spotlight', 'statement-bold',
   'scenario-response', 'qa-chat', 'qa-interview',
@@ -56,14 +56,14 @@ const IMPACT_ORDER = [
 
 // Shape-to-template affinity mapping.
 const SHAPE_TEMPLATES = {
-  'stats': ['stats-impact', 'stats-gauge', 'stats-horizon', 'impact-burst', 'neon-grid', 'info-command-center', 'board-deck-slide', 'risk-heatmap'],
+  'stats': ['stats-impact', 'stats-gauge', 'info-command-center', 'board-deck-slide', 'risk-heatmap'],
   'steps': ['timeline-journey', 'editorial-hero', 'feature-spread', 'info-flow', 'layered-briefing', 'executive-briefing', 'training-module'],
   'comparison': ['image-mosaic', 'feature-spread', 'split-panorama', 'tabular-matrix', 'verdict-branches', 'data-classification', 'regulatory-landscape'],
   'scenario': ['cinematic-cover', 'photo-essay', 'scenario-response', 'comic-saga', 'case-file', 'role-play'],
   'statement': ['cinematic-cover', 'spotlight-quote', 'statement-bold', 'swiss-minimal', 'aurora-glass', 'compliance-certificate', 'security-pledge'],
   'qa': ['qa-chat', 'qa-interview', 'chat-deepdive', 'quiz-card', 'bullet-beacon'],
   'policy': ['swiss-minimal', 'info-layers', 'statement-bold', 'policy-summary', 'data-classification', 'access-control-policy', 'governance-pillars'],
-  'awareness': ['cinematic-cover', 'editorial-hero', 'impact-burst', 'neon-grid', 'threat-radar', 'micro-learning', 'quick-reference-card'],
+  'awareness': ['cinematic-cover', 'editorial-hero', 'threat-radar', 'micro-learning', 'quick-reference-card'],
   'training': ['training-module', 'timeline-journey', 'info-flow', 'bullet-beacon', 'annual-refresher', 'micro-learning', 'quiz-card'],
 };
 

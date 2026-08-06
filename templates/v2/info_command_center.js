@@ -92,15 +92,8 @@ function orbitCard(o, b, n, palette, fonts, { cardX, cardY, cardW, cardH, anchor
   const nodeCx = cardX + 44;
   const nodeCy = cardY + 44;
 
-  // Connector hairline hero → node (drawn first, sits under the card)
-  const dx = nodeCx - anchorX;
-  const dy = nodeCy - anchorY;
-  const len = Math.max(1, Math.round(Math.hypot(dx, dy)));
-  const angle = Math.atan2(dy, dx) * 180 / Math.PI;
-  o.push(rect({
-    x: anchorX, y: anchorY - 2, w: len, h: 3, fill: palette.primary,
-    angle, opacity: 0.12, layerRole: 'decor'
-  }));
+  // connector hairlines removed (product decision 2026-08-06) — cards float
+  // free on the wall; the numbered node discs alone mark the sequence.
 
   // The translucent card panel — DARK_PANEL_2 at varied depth tint
   o.push(rect({
