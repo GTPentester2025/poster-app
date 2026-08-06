@@ -45,14 +45,10 @@ function decisionNode(o, palette, { cx, cy, r }) {
   ], { fill: DARK_BASE, opacity: 0.14, layerRole: 'decor' }));
 }
 
-/** A glowing branch connector: a thin rotated Rect from (x1,y1) to (x2,y2). */
-function branchLine(o, palette, x1, y1, x2, y2) {
-  const dx = x2 - x1;
-  const dy = y2 - y1;
-  const len = Math.round(Math.hypot(dx, dy));
-  const angle = Math.atan2(dy, dx) * 180 / Math.PI;
-  o.push(rect({ x: x1, y: y1 - 4, w: len, h: 8, fill: palette.primary, rx: 4, angle, layerRole: 'decor' }));
-}
+/** Branch connectors removed (product decision 2026-08-06) — the decision
+ * node + cards carry the layout without linking lines. Kept as a no-op so
+ * both build paths stay unchanged. */
+function branchLine() { /* intentionally draws nothing */ }
 
 // Zone geometry constants for a branch card (cursor layout). `tight` shrinks
 // the chrome (chips, pads, arrow) when the card budget is small so the two
@@ -341,7 +337,7 @@ export default {
   id: 'verdict-branches',
   name: 'Verdict branches',
   style: 'tree',
-  description: 'A glowing decision fork on black: a primary diamond decision node fans glowing branch lines out to DARK_PANEL cards, each reading as a flow from an "IF" condition zone through an arrow to a "THEN" outcome zone. The fork fans downward with cards stacked in portrait; the decision node sits left with cards fanning right in landscape.',
+  description: 'A glowing decision fork on black: a primary diamond decision node presides over DARK_PANEL cards, each reading as a flow from an "IF" condition zone through an arrow to a "THEN" outcome zone. The fork fans downward with cards stacked in portrait; the decision node sits left with cards fanning right in landscape.',
   contentSchema: {
     headline: { required: true, maxWords: 8 },
     subheadline: { required: false, maxWords: 14 },

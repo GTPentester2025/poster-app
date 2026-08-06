@@ -38,14 +38,12 @@ import infoLayers from './info_layers.js';
 import treeDecision from './tree_decision.js';
 import statsImpact from './stats_impact.js';
 import statsGauge from './stats_gauge.js';
-import statsHorizon from './stats_horizon.js';
 import infoCommandCenter from './info_command_center.js';
 import magEditorial from './mag_editorial.js';
 import chatDeepdive from './chat_deepdive.js';
 import comicSaga from './comic_saga.js';
 import layeredBriefing from './layered_briefing.js';
 // I4 night-family: 10 predominantly-black, gradient-lit infographic templates
-import neonGrid from './neon_grid.js';
 import threatRadar from './threat_radar.js';
 import glassStack from './glass_stack.js';
 import hexCells from './hex_cells.js';
@@ -54,7 +52,6 @@ import spotlightQuote from './spotlight_quote.js';
 import orbitPath from './orbit_path.js';
 import verdictBranches from './verdict_branches.js';
 import tickerTape from './ticker_tape.js';
-import impactBurst from './impact_burst.js';
 // I6 image-first premium family (cinematic full-bleed, imagery-dominant)
 import cinematicCover from './cinematic_cover.js';
 import imageMosaic from './image_mosaic.js';
@@ -100,16 +97,12 @@ import policySummary from './policy_summary.js';
 import governancePillars from './governance_pillars.js';
 import auditTrail from './audit_trail.js';
 import securityPledge from './security_pledge.js';
-import incidentTimeline from './incident_timeline.js';
 import microLearning from './micro_learning.js';
 import dataClassification from './data_classification.js';
 // O11 infographic/analytics family
 import threatLandscape from './threat_landscape.js';
-import securityCalendar from './security_calendar.js';
-import phishingDrill from './phishing_drill.js';
 import breachCost from './breach_cost.js';
 import privacyRights from './privacy_rights.js';
-import mfaJourney from './mfa_journey.js';
 import securityStack from './security_stack.js';
 // O12 distinct-layout family (brutalist, isometric, magazine, ring dashboard)
 import posterBrutal from './poster_brutal.js';
@@ -157,13 +150,11 @@ const TEMPLATES_V2 = [
   treeDecision,
   statsImpact,
   statsGauge,
-  statsHorizon,
   infoCommandCenter,
   magEditorial,
   chatDeepdive,
   comicSaga,
   layeredBriefing,
-  neonGrid,
   threatRadar,
   glassStack,
   hexCells,
@@ -172,7 +163,6 @@ const TEMPLATES_V2 = [
   orbitPath,
   verdictBranches,
   tickerTape,
-  impactBurst,
   cinematicCover,
   imageMosaic,
   editorialHero,
@@ -214,15 +204,11 @@ const TEMPLATES_V2 = [
   governancePillars,
   auditTrail,
   securityPledge,
-  incidentTimeline,
   microLearning,
   dataClassification,
     threatLandscape,
-    securityCalendar,
-    phishingDrill,
     breachCost,
     privacyRights,
-    mfaJourney,
     securityStack,
   posterBrutal,
   isoGrid,

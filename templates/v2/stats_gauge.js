@@ -2,11 +2,11 @@
 // stat sits inside a ring of concentric circle strokes (a dial read at a
 // glance), caption beneath the ring. Portrait: headline on top, gauges in a
 // two-column grid below. Landscape: headline column on the left, a 2x2 ring
-// grid on the right. 3–4 stats blocks {figure, caption}, no image slot,
+// grid on the right. 3-4 blocks {caption}; each dial holds a content image slot,
 // decor = signal arcs + dot grid.
 
 import {
-  textbox, rect, circle, hline,
+  textbox, rect, circle, imageSlot, hline,
   fitFontSize, estTextHeight, pickTextColor,
   pv, pvRect, pvCircle, pvBars,
   backgroundImageSlot,
@@ -49,11 +49,11 @@ function headlineZone(o, content, palette, fonts, { x, y, w, maxSize }) {
 }
 
 /**
- * One gauge cell: concentric ring strokes + figure (fieldRef 'figure')
- * centered in the dial, caption (fieldRef 'caption') below.
- * Elevated on a DARK_PANEL card with a 1px accent perimeter stroke.
+ * One gauge cell: concentric ring strokes with a circular IMAGE SLOT filling
+ * the dial (numbers removed from the circles — product decision 2026-08-06),
+ * caption (fieldRef 'caption') below. Elevated on a DARK_PANEL card.
  */
-function gaugeCell(o, b, palette, fonts, { cx, cellTop, cellX, cellW, cellH, ringR }) {
+function gaugeCell(o, b, i, palette, fonts, { cx, cellTop, cellX, cellW, cellH, ringR }) {
   const cy = cellTop + ringR + 48;
 
   // Card panel behind each gauge — dark elevated surface
@@ -83,18 +83,14 @@ function gaugeCell(o, b, palette, fonts, { cx, cellTop, cellX, cellW, cellH, rin
     opacity: 0.06, layerRole: 'decor'
   }));
 
-  // Figure inside the dial
-  const figW = Math.round(ringR * 1.5);
-  const figSize = fitFontSize(b.figure, { width: figW, height: Math.round(ringR * 1.1), maxSize: 120, minSize: 44 });
-  const figH = Math.round(estTextHeight(b.figure, figSize, figW, 1.04));
-  o.push({
-    ...textbox({
-      text: b.figure, x: Math.round(cx - figW / 2), y: Math.round(cy - figH / 2), w: figW,
-      fontSize: figSize, fontFamily: fonts.head, fontWeight: '900', fill: DARK_INK,
-      align: 'center', lineHeight: 1.04, layerRole: 'message', msgId: b.id, bgRef: DARK_BASE
-    }),
-    fieldRef: 'figure'
-  });
+  // Circular image slot filling the dial (rx = side/2 -> disc under cover-fit)
+  const side = Math.round((ringR - 24) * 2 / Math.SQRT2) + 20;
+  o.push(imageSlot({
+    slotId: `slot-${i + 1}`, x: Math.round(cx - side / 2), y: Math.round(cy - side / 2),
+    w: side, h: side, rx: Math.round(side / 2), stroke: palette.accent,
+    styleHint: `clean illustrative icon-style image for: ${b.caption}, centered subject, no text`,
+    blockId: b.id
+  }));
 
   // Caption below the ring
   const capSpace = cellH - (cy - cellTop) - ringR - 36;
@@ -123,7 +119,7 @@ function gaugeGrid(o, blocks, palette, fonts, { gridX, gridTop, gridW, gridH }) 
       ? Math.round(gridX + gridW / 2)
       : Math.round(gridX + cellW * col + cellW / 2);
     const cellX = Math.round(cx - cellW / 2);
-    gaugeCell(o, b, palette, fonts, {
+    gaugeCell(o, b, i, palette, fonts, {
       cx, cellTop: gridTop + row * cellH, cellX, cellW, cellH, ringR
     });
   });
@@ -231,14 +227,14 @@ export default {
   id: 'stats-gauge',
   name: 'Gauge board',
   style: 'stats',
-  description: 'Dark control-room dashboard: each figure sits inside a concentric gauge ring with its caption beneath. Two-column dial grid under the headline in portrait; headline column beside a 2x2 ring grid in landscape.',
+  description: 'Dark control-room dashboard: each concentric gauge ring holds a circular image with its caption beneath. Two-column dial grid under the headline in portrait; headline column beside a 2x2 ring grid in landscape.',
   contentSchema: {
     headline: { required: true, maxWords: 8 },
     subheadline: { required: false, maxWords: 14 },
-    blocks: { kind: 'stats', min: 3, max: 4, fields: ['figure', 'caption'] },
+    blocks: { kind: 'stats', min: 3, max: 4, fields: ['caption'] },
     callToAction: { required: true, maxWords: 10 },
     backgroundSlots: 1,
-    imageSlots: 0
+    imageSlots: 4
   },
   build: { portrait: buildPortrait, landscape: buildLandscape },
   preview: { portrait: previewPortrait, landscape: previewLandscape },

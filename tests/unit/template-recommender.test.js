@@ -11,7 +11,7 @@ const TEMPLATES = [
   { id: 'cinematic-cover', style: 'statement', kind: 'single', name: 'Cinematic cover', description: 'x' },
   { id: 'editorial-hero', style: 'infographic', kind: 'sequence', name: 'Editorial hero', description: 'x' },
   { id: 'image-mosaic', style: 'infographic', kind: 'panels', name: 'Image mosaic', description: 'x' },
-  { id: 'impact-burst', style: 'stats', kind: 'stats', name: 'Impact burst', description: 'x' },
+  { id: 'stats-impact', style: 'stats', kind: 'stats', name: 'Stats impact', description: 'x' },
   { id: 'qa-chat', style: 'qa', kind: 'qa-pairs', name: 'Q&A chat', description: 'x' }
 ];
 const ids = new Set(TEMPLATES.map((t) => t.id));
@@ -23,7 +23,7 @@ test('recommendTemplate: no egress → deterministic, always a valid id', async 
 });
 
 test('recommendTemplate: topic-shape hints steer the impact pick', async () => {
-  assert.equal((await recommendTemplate({ prompt: '91% of breaches start with a click — the numbers', templates: TEMPLATES })).templateId, 'impact-burst');
+  assert.equal((await recommendTemplate({ prompt: '91% of breaches start with a click — the numbers', templates: TEMPLATES })).templateId, 'stats-impact');
   assert.equal((await recommendTemplate({ prompt: 'how to report a phishing email step by step', templates: TEMPLATES })).templateId, 'editorial-hero');
   assert.equal((await recommendTemplate({ prompt: 'dos and don’ts of USB media, red flags', templates: TEMPLATES })).templateId, 'image-mosaic');
 });

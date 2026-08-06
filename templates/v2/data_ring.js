@@ -1,12 +1,12 @@
 // v2 template — data-ring (style: stats). Donut-ring dashboard: every stat is
 // a big ring gauge — a muted full track circle, a bright brand-colour value
-// ring inside it, an accent marker dot on the rim, and the figure sitting on
-// an accent chip in the ring's centre with the caption beneath. Portrait lays
+// ring inside it, an accent marker dot on the rim, and a circular image
+// filling the ring's centre with the caption beneath. Portrait lays
 // the gauges in a 2x2 grid; landscape lines all four up in a single 1x4 row.
-// Uses the gallery's stats field convention {figure, caption}.
+// Blocks carry {caption}; each ring's disc is a content image slot.
 
 import {
-  textbox, rect, circle, backgroundImageSlot,
+  textbox, rect, circle, imageSlot, backgroundImageSlot,
   fitTextBlock,
   pv, pvRect, pvCircle, pvBars
 } from '../helpers.js';
@@ -16,10 +16,11 @@ import {
 } from './decor.js';
 
 /**
- * One ring gauge in a cell: panel, track ring, value ring, marker dot,
- * figure on a centred accent chip, caption below the ring.
+ * One ring gauge in a cell: panel, track ring, value ring, marker dot, a
+ * circular IMAGE SLOT filling the ring's centre (product decision 2026-08-06:
+ * numbers removed from the circles — imagery instead), caption below.
  */
-function ringStat(o, b, palette, fonts, { x, y, w, h, r }, pickOn) {
+function ringStat(o, b, i, palette, fonts, { x, y, w, h, r }, pickOn) {
   // cell panel
   o.push(rect({ x, y, w, h, fill: DARK_PANEL, rx: 28, layerRole: 'background', msgId: b.id }));
   o.push(rect({
@@ -46,24 +47,15 @@ function ringStat(o, b, palette, fonts, { x, y, w, h, r }, pickOn) {
     fill: palette.accent, layerRole: 'decor'
   }));
 
-  // figure on a centred accent chip inside the ring
-  const figW = 2 * r - 96;
-  const fig = fitTextBlock(b.figure, { width: figW, height: 2 * r - 120, maxSize: 88, minSize: 16, lineHeight: 1.05 });
-  const chipH = Math.round(fig.height) + 40;
-  const chipW = 2 * r - 64;
-  o.push(rect({
-    x: cx - Math.round(chipW / 2), y: cy - Math.round(chipH / 2), w: chipW, h: chipH,
-    fill: palette.accent, rx: 20, layerRole: 'background', msgId: b.id
+  // circular image slot inscribed in the value ring (rx = side/2 → the
+  // cover-fit clip renders it as a disc inside the gauge)
+  const side = Math.round((r - 34) * 2 / Math.SQRT2) + 24;
+  o.push(imageSlot({
+    slotId: `slot-${i + 1}`, x: cx - Math.round(side / 2), y: cy - Math.round(side / 2),
+    w: side, h: side, rx: Math.round(side / 2), stroke: palette.accent,
+    styleHint: `clean illustrative icon-style image for: ${b.caption}, centered subject, no text`,
+    blockId: b.id
   }));
-  o.push({
-    ...textbox({
-      text: b.figure, x: cx - Math.round(figW / 2), y: Math.round(cy - fig.height / 2), w: figW,
-      fontSize: fig.fontSize, fontFamily: fonts.head, fontWeight: '900',
-      fill: pickOn(palette.accent), align: 'center', lineHeight: 1.05,
-      layerRole: 'message', msgId: b.id, bgRef: palette.accent
-    }),
-    fieldRef: 'figure'
-  });
 
   // caption beneath the ring
   const capY = ringTop + 2 * r + 30;
@@ -143,7 +135,7 @@ function buildPortrait(content, palette, fonts) {
   blocks.forEach((b, i) => {
     const col = i % cols;
     const row = Math.floor(i / cols);
-    ringStat(o, b, palette, fonts, {
+    ringStat(o, b, i, palette, fonts, {
       x: 88 + col * (cellW + gap), y: top + row * (cellH + gap), w: cellW, h: cellH, r
     }, pickTextColor);
   });
@@ -178,7 +170,7 @@ function buildLandscape(content, palette, fonts) {
   const cellW = Math.floor((W - 160 - gap * (n - 1)) / n);
   const r = Math.min(150, Math.floor((cellW - 70) / 2), Math.floor((cellH - 160) / 2));
   blocks.forEach((b, i) => {
-    ringStat(o, b, palette, fonts, {
+    ringStat(o, b, i, palette, fonts, {
       x: 80 + i * (cellW + gap), y: top, w: cellW, h: cellH, r
     }, pickTextColor);
   });
@@ -234,14 +226,14 @@ export default {
   id: 'data-ring',
   name: 'Ring gauges',
   style: 'stats',
-  description: 'Donut-ring dashboard: every stat is a big gauge — a muted track circle, a bright brand-colour value ring, an accent marker dot on the rim, the figure on an accent chip in the centre and the caption beneath. 2x2 gauge grid in portrait, a single 1x4 row in landscape.',
+  description: 'Donut-ring dashboard: every stat is a big gauge — a muted track circle, a bright brand-colour value ring, an accent marker dot on the rim, a circular image filling the centre and the caption beneath. 2x2 gauge grid in portrait, a single 1x4 row in landscape.',
   contentSchema: {
     headline: { required: true, maxWords: 8 },
     subheadline: { required: false, maxWords: 14 },
-    blocks: { kind: 'stats', min: 3, max: 4, fields: ['figure', 'caption'] },
+    blocks: { kind: 'stats', min: 3, max: 4, fields: ['caption'] },
     callToAction: { required: true, maxWords: 10 },
     backgroundSlots: 1,
-    imageSlots: 0
+    imageSlots: 4
   },
   build: { portrait: buildPortrait, landscape: buildLandscape },
   preview: { portrait: previewPortrait, landscape: previewLandscape },

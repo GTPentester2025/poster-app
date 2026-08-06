@@ -9,7 +9,7 @@
 // (the overflow audit measures unrotated boxes; margins absorb the tilt).
 
 import {
-  textbox, rect, circle, chip, backgroundImageSlot,
+  textbox, rect, circle, chip, imageSlot, backgroundImageSlot,
   fitTextBlock, pickTextColor,
   pv, pvRect, pvCircle, pvBars
 } from '../helpers.js';
@@ -45,19 +45,34 @@ function stickerRects(n, { x, y, w, h }) {
   return rects;
 }
 
-/** One sticker: tilted white card + dark outline + pinned accent badge chip. */
+/** One sticker: tilted white card + dark outline + pinned accent badge chip +
+ * an image section band above the text (product decision 2026-08-06: every
+ * sticker carries imagery alongside its copy). The image slot stays unrotated
+ * inside the tilted card (same convention as the text). */
 function sticker(o, b, i, palette, fonts, { x, y, w, h, angle }) {
   const innerW = w - PADX * 2;
-  const fit = fitTextBlock(b.text, {
-    width: innerW, height: Math.max(56, h - 30 - TOP_PAD - BOT_PAD), maxSize: 36, minSize: 15, lineHeight: 1.34
-  });
   const cardY = y + 30; // headroom for the pinned badge
-  const cardH = Math.min(h - 30, Math.round(TOP_PAD + fit.height + BOT_PAD));
+  const maxCardH = h - 30;
+  // image band: ~40% of the card budget, min 120px — measured BEFORE the text
+  // budget so both sections always fit the sticker
+  const imgH = Math.max(120, Math.round(maxCardH * 0.4));
+  const fit = fitTextBlock(b.text, {
+    width: innerW, height: Math.max(56, maxCardH - TOP_PAD - BOT_PAD - imgH - 18), maxSize: 36, minSize: 15, lineHeight: 1.34
+  });
+  const cardH = Math.min(maxCardH, Math.round(TOP_PAD + imgH + 18 + fit.height + BOT_PAD));
 
   o.push(rect({ x: x + 8, y: cardY + 10, w, h: cardH, fill: palette.dark, opacity: 0.1, rx: 26, angle, layerRole: 'background', msgId: b.id }));
   o.push(rect({ x, y: cardY, w, h: cardH, fill: '#FFFFFF', rx: 26, stroke: palette.dark, strokeWidth: 3, angle, layerRole: 'background', msgId: b.id }));
   // inner inset edge — the "thick white sticker border" read
   o.push(rect({ x: x + 14, y: cardY + 14, w: w - 28, h: cardH - 28, fill: 'transparent', rx: 18, stroke: palette.dark, strokeWidth: 1, opacity: 0.25, angle, layerRole: 'decor' }));
+
+  // image section: rounded slot filling the card's top band
+  o.push(imageSlot({
+    slotId: `slot-${i + 1}`, x: x + PADX, y: cardY + 24, w: innerW, h: imgH,
+    rx: 16, stroke: palette.primary,
+    styleHint: `playful sticker-style illustration for: ${b.text.slice(0, 70)}, flat vector, bold shapes, no text`,
+    blockId: b.id
+  }));
 
   const badgeBg = i % 2 === 0 ? palette.accent : palette.primary;
   const chipObjs = chip({
@@ -69,7 +84,7 @@ function sticker(o, b, i, palette, fonts, { x, y, w, h, angle }) {
 
   o.push({
     ...textbox({
-      text: b.text, x: x + PADX, y: cardY + TOP_PAD, w: innerW, fontSize: fit.fontSize,
+      text: b.text, x: x + PADX, y: cardY + 24 + imgH + 18, w: innerW, fontSize: fit.fontSize,
       fontFamily: fonts.body, fontWeight: '600', fill: palette.dark,
       lineHeight: 1.34, layerRole: 'message', msgId: b.id, bgRef: '#FFFFFF'
     }),
@@ -212,7 +227,7 @@ export default {
     blocks: { kind: 'cells', min: 3, max: 4, fields: ['label', 'text'] },
     callToAction: { required: true, maxWords: 10 },
     backgroundSlots: 1,
-    imageSlots: 0
+    imageSlots: 4
   },
   build: { portrait: buildPortrait, landscape: buildLandscape },
   preview: { portrait: previewPortrait, landscape: previewLandscape },
